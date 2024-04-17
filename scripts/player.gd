@@ -20,10 +20,10 @@ var jump_double := true
 
 var coins := 0
 
-@onready var particles_trail :GPUParticles3D= $ParticlesTrail
-@onready var sound_footsteps :AudioStreamPlayer= $SoundFootsteps
-@onready var model :Node3D= $Character
-@onready var animation :AnimationPlayer= $Character/AnimationPlayer
+@onready var particles_trail: GPUParticles3D = $ParticlesTrail
+@onready var sound_footsteps: AudioStreamPlayer = $SoundFootsteps
+@onready var model: Node3D = $Character
+@onready var animation: AnimationPlayer = $Character/AnimationPlayer
 
 # Functions
 
@@ -42,7 +42,6 @@ func _physics_process(delta: float) -> void:
 
 	applied_velocity = velocity.lerp(movement_velocity, delta * 10)
 	applied_velocity.y = -gravity
-
 	velocity = applied_velocity
 	move_and_slide()
 
@@ -89,7 +88,7 @@ func handle_effects() -> void:
 
 # Handle movement input
 
-func handle_controls(delta:float) -> void:
+func handle_controls(delta: float) -> void:
 
 	# Movement
 
@@ -120,7 +119,7 @@ func handle_controls(delta:float) -> void:
 
 # Handle gravity
 
-func handle_gravity(delta:float) -> void:
+func handle_gravity(delta: float) -> void:
 
 	gravity += 25 * delta
 

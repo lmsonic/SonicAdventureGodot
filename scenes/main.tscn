@@ -27,6 +27,8 @@ environment = ExtResource("1_ahusb")
 
 [node name="Player" parent="." node_paths=PackedStringArray("view") instance=ExtResource("2_onms2")]
 view = NodePath("../View")
+drag = 10.0
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.00623369, -1.92723, -0.322296)
 
 [node name="View" type="Node3D" parent="." node_paths=PackedStringArray("target")]
 transform = Transform3D(0.707107, -0.298836, 0.640856, 0, 0.906308, 0.422618, -0.707107, -0.298836, 0.640856, 0, 0, 0)
@@ -74,7 +76,7 @@ transform = Transform3D(0.994522, 0, -0.104528, 0, 1, 0, 0.104528, 0, 0.994522, 
 transform = Transform3D(0.939693, 0, 0.34202, 0, 1, 0, -0.34202, 0, 0.939693, -11.7527, 1.8303, -2.30579)
 
 [node name="platform-grass-large-round" parent="World" instance=ExtResource("8_4oh1e")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 1, -2)
+transform = Transform3D(4.94732, 0, 0, 0, 4.94732, 0, 0, 0, 4.94732, -7.0096, -6.08773, -2.01758)
 
 [node name="flag" parent="World" instance=ExtResource("9_fw1f5")]
 transform = Transform3D(0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, 0.707107, 0, 3.48077, -6)
@@ -161,5 +163,3 @@ offset_right = 368.0
 offset_bottom = 123.0
 text = "0"
 label_settings = SubResource("LabelSettings_38ys3")
-
-[connection signal="coin_collected" from="Player" to="HUD" method="_on_coin_collected"]
