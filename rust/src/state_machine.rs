@@ -1,5 +1,3 @@
-use std::borrow::Borrow;
-
 use godot::{engine::InputEvent, prelude::*};
 
 use crate::player::Player;
@@ -11,6 +9,7 @@ pub enum State {
     AirBall,
     SpindashCharge,
     GroundBall,
+    HomingAttack,
 }
 
 impl State {
@@ -57,6 +56,7 @@ impl State {
             }
             State::SpindashCharge => {
                 player.spindash_timer = 0.0;
+                let velocity = player.base().get_velocity();
                 player.base_mut().set_velocity(Vector3::ZERO);
 
                 trail.set_emitting(true);
@@ -68,13 +68,29 @@ impl State {
                 particles.set_emitting(false);
                 footsteps.set_stream_paused(true);
             }
+            State::HomingAttack => match player.closest_target_in_front() {
+                Some(target) => {
+                    player.homing_attack_target = Some(target);
+                }
+                None => {
+                    let mut velocity = player.base().get_velocity();
+                    let forward = player.get_forward();
+                    let y_speed = velocity.y;
+                    velocity.y = 0.0;
+                    velocity += forward * player.homing_attack_force;
+                    velocity = velocity.limit_length(Some(player.max_air_speed));
+                    velocity.y = y_speed;
+                    player.base_mut().set_velocity(velocity)
+                }
+            },
         }
     }
     pub fn exit(&self, player: &mut Player, new_state: State) {
         match self {
             State::SpindashCharge => {
                 let mut velocity = player.base().get_velocity();
-                velocity += player.get_forward() * player.spindash_timer * player.spindash_speed;
+                velocity +=
+                    player.get_forward() * player.spindash_timer.max(0.3) * player.spindash_speed;
                 player.base_mut().set_velocity(velocity);
             }
             State::AirBall => {}
@@ -136,20 +152,15 @@ impl State {
                 } else if velocity.length_squared() > 0.0 {
                     velocity = velocity.lerp(Vector3::ZERO, deceleration * delta)
                 }
+                velocity = velocity.limit_length(Some(max_speed));
 
                 let input = Input::singleton();
-                // Homing Attack
-                if player.has_homing_attack && input.is_action_just_pressed(c"jump".into()) {
-                    velocity += forward * player.homing_attack_force;
-                    player.has_homing_attack = false;
-                }
-                velocity = velocity.limit_length(Some(max_speed));
 
                 // Vertical velocity
                 velocity.y = y_speed - player.gravity * delta;
 
-                if velocity.y >= 0.0 && input.is_action_just_released(c"jump".into()) {
-                    velocity.y *= 0.5;
+                if velocity.y >= 0.0 && !input.is_action_pressed(c"jump".into()) {
+                    velocity.y *= 0.9;
                 }
 
                 player.base_mut().set_velocity(velocity);
@@ -157,16 +168,20 @@ impl State {
 
                 if player.base().is_on_floor() {
                     Some(State::Grounded)
+                } else if player.has_homing_attack && input.is_action_just_pressed(c"jump".into()) {
+                    player.has_homing_attack = false;
+                    Some(State::HomingAttack)
                 } else {
                     None
                 }
             }
             State::SpindashCharge => {
                 let max_spindash_timer = 1.0;
-                let mut player = player;
                 player.spindash_timer =
                     (player.spindash_timer + delta).clamp(0.0, max_spindash_timer);
+                player.base_mut().move_and_slide();
                 let input = Input::singleton();
+
                 if input.is_action_just_released(c"spindash".into()) {
                     Some(State::GroundBall)
                 } else {
@@ -198,7 +213,7 @@ impl State {
                 player.base_mut().move_and_slide();
 
                 if input.is_action_just_pressed(c"spindash".into()) {
-                    Some(State::Grounded)
+                    Some(State::SpindashCharge)
                 } else if player.base().is_on_floor() {
                     if velocity.length() < 2.0 {
                         Some(State::Grounded)
@@ -209,11 +224,40 @@ impl State {
                     Some(State::AirBall)
                 }
             }
+            State::HomingAttack => {
+                // If there is a target, continue until target
+                // Else become airborne
+                match player.homing_attack_target.clone() {
+                    Some(target) => {
+                        let mut velocity = player.base().get_velocity();
+                        let player_pos = player.base().get_global_position();
+                        if player_pos.distance_squared_to(target.get_global_position()) < 0.1 {
+                            velocity.x *= 0.5;
+                            velocity.z *= 0.5;
+                            velocity.y = player.jump_velocity();
+                            player.base_mut().set_velocity(velocity);
+                            player.base_mut().move_and_slide();
+                            player.has_homing_attack = true;
+                            player.homing_attack_target = None;
+                            return Some(Self::AirBall);
+                        }
+                        let direction_to_target =
+                            player_pos.direction_to(target.get_global_position());
+
+                        velocity = direction_to_target * player.homing_attack_force;
+                        velocity = velocity.limit_length(Some(player.max_air_speed));
+                        godot_print!("{velocity}");
+                        player.base_mut().set_velocity(velocity);
+                        player.base_mut().move_and_slide();
+
+                        None
+                    }
+                    None => Some(State::AirBall),
+                }
+            }
         }
     }
     pub fn process(&self, mut player: &mut Player, delta: f64) -> Option<State> {
-        player.rotate_on_input(delta);
-
         // Animation
         let mut model = player.model.clone().unwrap();
         match self {
@@ -236,15 +280,18 @@ impl State {
                         .name(c"idle".into())
                         .custom_blend(0.5)
                         .done();
-                }
+                };
+                player.rotate_on_input(delta);
             }
-            State::AirBall | State::SpindashCharge => {
+            State::AirBall | State::SpindashCharge | State::HomingAttack => {
                 let rot = player.spin_speed * delta as f32;
                 model.rotate_object_local(Vector3::RIGHT, rot);
+                player.rotate_on_input(delta);
             }
             State::GroundBall => {
                 let rot = 2.0 * player.base().get_velocity().length() * delta as f32;
                 model.rotate_object_local(Vector3::RIGHT, rot);
+                player.rotate_on_input(delta);
             }
         }
         None

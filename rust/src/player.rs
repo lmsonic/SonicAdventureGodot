@@ -35,6 +35,9 @@ pub(crate) struct Player {
     #[init(default = 5.0)]
     #[export]
     pub homing_attack_force: f32,
+    #[init(default = 8.0)]
+    #[export]
+    pub homing_attack_radius: f32,
 
     #[init(default = 10.0)]
     #[export]
@@ -68,7 +71,7 @@ pub(crate) struct Player {
 
     #[init(default = 10.0)]
     #[export]
-    rotation_speed: f32,
+    pub rotation_speed: f32,
     #[init(default = 20.0)]
     #[export]
     pub spin_speed: f32,
@@ -80,6 +83,7 @@ pub(crate) struct Player {
     pub spindash_timer: f32,
     #[init(default = true)]
     pub has_homing_attack: bool,
+    pub homing_attack_target: Option<Gd<Node3D>>,
 
     #[export]
     #[init(default = State::Grounded)]
@@ -142,6 +146,34 @@ impl Player {
         current_state.exit(self, new_state);
         new_state.enter(self, self.current_state);
         self.current_state = new_state;
+        godot_print!("{:?}", self.current_state);
+    }
+
+    pub fn closest_target_in_front(&self) -> Option<Gd<Node3D>> {
+        let forward = self.get_forward();
+        self.base()
+            .get_tree()
+            .unwrap()
+            .get_nodes_in_group(c"targettable".into())
+            .iter_shared()
+            .filter_map(|node| node.clone().try_cast::<Node3D>().ok())
+            .filter(|node| {
+                let delta = (node.get_position() - self.base().get_position()).normalized();
+                forward.dot(delta) > 0.5
+            })
+            .filter(|node| {
+                let distance = node.get_position().distance_to(self.base().get_position());
+                distance < self.homing_attack_radius
+            })
+            .min_by(|a, b| {
+                let distance_a = a
+                    .get_position()
+                    .distance_squared_to(self.base().get_position());
+                let distance_b = b
+                    .get_position()
+                    .distance_squared_to(self.base().get_position());
+                distance_a.partial_cmp(&distance_b).expect("Comparing Nan")
+            })
     }
 }
 #[godot_api]
@@ -168,6 +200,10 @@ impl ICharacterBody3D for Player {
 
         if let Some(new_state) = current_state.process_physics(self, delta) {
             self.change_state(new_state);
+        }
+
+        if self.base().get_position().y < -20.0 {
+            self.base().get_tree().unwrap().reload_current_scene();
         }
     }
 }

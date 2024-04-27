@@ -29,16 +29,6 @@ environment = ExtResource("1_ahusb")
 view = NodePath("../View")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.00623369, -1.92723, -0.322296)
 
-[node name="View" type="Node3D" parent="." node_paths=PackedStringArray("target")]
-transform = Transform3D(0.707107, -0.298836, 0.640856, 0, 0.906308, 0.422618, -0.707107, -0.298836, 0.640856, 0, 0, 0)
-script = ExtResource("5_bg0fr")
-target = NodePath("../Player")
-
-[node name="Camera" type="Camera3D" parent="View"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 10)
-current = true
-fov = 40.0
-
 [node name="World" type="Node3D" parent="."]
 
 [node name="platform" parent="World" instance=ExtResource("6_sdmev")]
@@ -162,3 +152,16 @@ offset_right = 368.0
 offset_bottom = 123.0
 text = "0"
 label_settings = SubResource("LabelSettings_38ys3")
+
+[node name="View" type="Node3D" parent="." node_paths=PackedStringArray("target")]
+transform = Transform3D(0.707107, -0.298836, 0.640856, 0, 0.906308, 0.422618, -0.707107, -0.298836, 0.640856, 0, 0, 0)
+script = ExtResource("5_bg0fr")
+target = NodePath("../Player")
+
+[node name="Camera" type="Camera3D" parent="View"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 10)
+current = true
+fov = 40.0
+
+[node name="CSGSphere3D" type="CSGSphere3D" parent="." groups=["targettable"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8.81854, -1.64489, -7.97408)
