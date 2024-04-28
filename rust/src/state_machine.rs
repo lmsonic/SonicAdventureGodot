@@ -68,21 +68,25 @@ impl State {
                 particles.set_emitting(false);
                 footsteps.set_stream_paused(true);
             }
-            State::HomingAttack => match player.closest_target_in_front() {
-                Some(target) => {
-                    player.homing_attack_target = Some(target);
+            State::HomingAttack => {
+                match player.closest_target_in_front() {
+                    Some(target) => {
+                        player.homing_attack_target = Some(target);
+                    }
+                    None => {
+                        let mut velocity = player.base().get_velocity();
+                        let forward = player.get_forward();
+                        let y_speed = velocity.y;
+                        velocity.y = 0.0;
+                        velocity += forward * player.homing_attack_force;
+                        velocity = velocity.limit_length(Some(player.max_air_speed));
+                        velocity.y = y_speed;
+                        player.base_mut().set_velocity(velocity)
+                    }
                 }
-                None => {
-                    let mut velocity = player.base().get_velocity();
-                    let forward = player.get_forward();
-                    let y_speed = velocity.y;
-                    velocity.y = 0.0;
-                    velocity += forward * player.homing_attack_force;
-                    velocity = velocity.limit_length(Some(player.max_air_speed));
-                    velocity.y = y_speed;
-                    player.base_mut().set_velocity(velocity)
-                }
-            },
+                particles.set_emitting(false);
+                footsteps.set_stream_paused(true);
+            }
         }
     }
     pub fn exit(&self, player: &mut Player, new_state: State) {
@@ -280,6 +284,8 @@ impl State {
                         .name(c"idle".into())
                         .custom_blend(0.5)
                         .done();
+                    particles.set_emitting(false);
+                    footsteps.set_stream_paused(true);
                 };
                 player.rotate_on_input(delta);
             }

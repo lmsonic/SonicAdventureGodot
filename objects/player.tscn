@@ -34,12 +34,6 @@ gravity = Vector3(0, 0.1, 0)
 scale_min = 0.75
 scale_curve = SubResource("CurveTexture_pbd8x")
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_m4fxh"]
-transparency = 1
-cull_mode = 2
-shading_mode = 0
-albedo_color = Color(1, 1, 1, 0.196078)
-
 [sub_resource type="Curve" id="Curve_2pcj2"]
 _data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
 point_count = 2
@@ -51,11 +45,21 @@ curve = SubResource("Curve_2pcj2")
 gravity = Vector3(0, 0, 0)
 scale_curve = SubResource("CurveTexture_nu727")
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_m4fxh"]
+transparency = 1
+depth_draw_mode = 1
+shading_mode = 2
+albedo_color = Color(0.294118, 0.0823529, 1, 0.235294)
+emission_operator = 1
+grow = true
+grow_amount = 0.1
+
 [sub_resource type="SphereMesh" id="SphereMesh_jyo0p"]
+material = SubResource("StandardMaterial3D_m4fxh")
 radius = 0.4
 height = 0.8
-radial_segments = 10
-rings = 10
+radial_segments = 6
+rings = 6
 
 [node name="Player" type="Player" node_paths=PackedStringArray("particles", "trail", "footsteps", "model", "animation")]
 particles = NodePath("ParticlesTrail")
@@ -126,11 +130,10 @@ transform = Transform3D(0.707107, -0.707107, 0, 0.707107, 0.707107, 0, 0, 0, 1, 
 
 [node name="Trail" type="GPUParticles3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.508667, -0.0930658)
-visible = false
-material_override = SubResource("StandardMaterial3D_m4fxh")
-amount = 20
+amount = 15
 lifetime = 0.5
 visibility_aabb = AABB(-0.998867, -0.998867, -0.998867, 1.99773, 1.99773, 1.99773)
+draw_order = 2
 process_material = SubResource("ParticleProcessMaterial_pepe8")
 draw_pass_1 = SubResource("SphereMesh_jyo0p")
 
