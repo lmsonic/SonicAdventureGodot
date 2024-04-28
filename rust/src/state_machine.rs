@@ -84,6 +84,7 @@ impl State {
                         player.base_mut().set_velocity(velocity)
                     }
                 }
+                trail.set_emitting(true);
                 particles.set_emitting(false);
                 footsteps.set_stream_paused(true);
             }
