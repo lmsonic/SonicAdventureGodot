@@ -1,0 +1,13 @@
+[gd_scene load_steps=2 format=3 uid="uid://36mcsb6wrsdr"]
+
+[ext_resource type="Script" path="res://scripts/view.gd" id="1_371vu"]
+
+[node name="View" type="Node3D" node_paths=PackedStringArray("target")]
+transform = Transform3D(0.707107, -0.298836, 0.640856, 0, 0.906308, 0.422618, -0.707107, -0.298836, 0.640856, 0, 0, 0)
+script = ExtResource("1_371vu")
+target = NodePath("")
+
+[node name="Camera" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 10)
+current = true
+fov = 40.0

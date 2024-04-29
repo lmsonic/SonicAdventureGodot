@@ -1,0 +1,85 @@
+[gd_scene load_steps=7 format=3 uid="uid://dtsgtalmq8rk7"]
+
+[ext_resource type="PackedScene" uid="uid://dl2ed4gkybggf" path="res://objects/player.tscn" id="1_cugl0"]
+[ext_resource type="PackedScene" uid="uid://36mcsb6wrsdr" path="res://scenes/view.tscn" id="2_nqevt"]
+[ext_resource type="Material" uid="uid://bx6qeabdhq2s" path="res://addons/kenney_prototype_tools/materials/dark/material_01.tres" id="3_xwusv"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_kdlij"]
+sky_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
+ground_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
+
+[sub_resource type="Sky" id="Sky_mhtox"]
+sky_material = SubResource("ProceduralSkyMaterial_kdlij")
+
+[sub_resource type="Environment" id="Environment_56vci"]
+background_mode = 2
+sky = SubResource("Sky_mhtox")
+tonemap_mode = 2
+glow_enabled = true
+
+[node name="Playground" type="Node3D"]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.866023, -0.433016, 0.250001, 0, 0.499998, 0.866027, -0.500003, 0.749999, -0.43301, 0, 0, 0)
+shadow_enabled = true
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_56vci")
+
+[node name="Player" parent="." node_paths=PackedStringArray("view") instance=ExtResource("1_cugl0")]
+view = NodePath("../View")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.091898, 2.44734, 0.0273056)
+floor_stop_on_slope = false
+floor_constant_speed = true
+floor_block_on_wall = false
+floor_max_angle = 1.22173
+floor_snap_length = 0.5
+
+[node name="View" parent="." node_paths=PackedStringArray("target") instance=ExtResource("2_nqevt")]
+target = NodePath("../Player")
+
+[node name="CSGCombiner3D" type="CSGCombiner3D" parent="."]
+material_override = ExtResource("3_xwusv")
+use_collision = true
+
+[node name="CSGBox3D" type="CSGBox3D" parent="CSGCombiner3D"]
+use_collision = true
+size = Vector3(30, 1, 30)
+
+[node name="CSGPolygon3D" type="CSGPolygon3D" parent="CSGCombiner3D"]
+transform = Transform3D(0.999999, -0.000858704, 0.00099915, 0.000860303, 0.999998, -0.00158254, -0.000997773, 0.00158341, 0.999998, 0, 1, 0)
+material_override = ExtResource("3_xwusv")
+polygon = PackedVector2Array(0, 0, 1.72756, -0.46235, 1, 0)
+mode = 1
+spin_degrees = 360.0
+spin_sides = 8
+
+[node name="CSGCylinder3D" type="CSGCylinder3D" parent="CSGCombiner3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 3, 10)
+radius = 2.0
+height = 1.0
+
+[node name="CSGCylinder3D2" type="CSGCylinder3D" parent="CSGCombiner3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 4, 6)
+radius = 2.0
+height = 1.0
+
+[node name="15" type="CSGPolygon3D" parent="CSGCombiner3D"]
+transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, -13.4664, 0.5, 12.9084)
+polygon = PackedVector2Array(0, 0, 1.2, 0.5, 1.8, 0.5, 3, 0)
+depth = 2.0
+
+[node name="30" type="CSGPolygon3D" parent="CSGCombiner3D"]
+transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, -13.5, 0.5, 6.9)
+polygon = PackedVector2Array(0, 0, 1.2, 1, 1.8, 1, 3, 0)
+depth = 2.0
+
+[node name="45" type="CSGPolygon3D" parent="CSGCombiner3D"]
+transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, -13.5, 0.5, 0.9)
+polygon = PackedVector2Array(0, 0, 1.2, 1.5, 1.8, 1.5, 3, 0)
+depth = 2.0
+
+[node name="60" type="CSGPolygon3D" parent="CSGCombiner3D"]
+transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, -13.5, 0.5, -5.1)
+polygon = PackedVector2Array(0, 0, 1.2, 2, 1.8, 2, 3, 0)
+depth = 2.0

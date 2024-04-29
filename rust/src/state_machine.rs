@@ -53,6 +53,8 @@ impl State {
                     .set_velocity(Vector3::new(velocity.x, 0.0, velocity.z));
 
                 trail.set_emitting(false);
+                player.base_mut().set_floor_snap_length(0.5);
+                player.base_mut().set_floor_stop_on_slope_enabled(true);
             }
             State::SpindashCharge => {
                 player.spindash_timer = 0.0;
@@ -62,11 +64,15 @@ impl State {
                 trail.set_emitting(true);
                 particles.set_emitting(false);
                 footsteps.set_stream_paused(true);
+                player.base_mut().set_floor_snap_length(0.3);
+                player.base_mut().set_floor_stop_on_slope_enabled(false);
             }
             State::AirBall | State::GroundBall => {
                 trail.set_emitting(true);
                 particles.set_emitting(false);
                 footsteps.set_stream_paused(true);
+                player.base_mut().set_floor_snap_length(0.3);
+                player.base_mut().set_floor_stop_on_slope_enabled(false);
             }
             State::HomingAttack => {
                 match player.closest_target_in_front() {
@@ -87,6 +93,9 @@ impl State {
                 trail.set_emitting(true);
                 particles.set_emitting(false);
                 footsteps.set_stream_paused(true);
+                // Slope changes
+                player.base_mut().set_floor_snap_length(0.3);
+                player.base_mut().set_floor_stop_on_slope_enabled(false);
             }
         }
     }
@@ -119,13 +128,15 @@ impl State {
                 let max_speed = player.max_speed;
 
                 // Planar movement
+                let normal = player.base().get_floor_normal();
+                let angle = normal.dot(forward) * 0.5 + 1.0;
                 if planar_input.length_squared() > 0.0 {
-                    velocity += forward * acceleration * delta;
+                    velocity += forward * acceleration * delta * angle;
                 } else if velocity.length_squared() > 0.0 {
                     velocity = velocity.lerp(Vector3::ZERO, deceleration * delta)
                 }
 
-                velocity = velocity.limit_length(Some(max_speed));
+                velocity = velocity.limit_length(Some(max_speed * angle));
 
                 let input = Input::singleton();
                 if input.is_action_just_pressed(c"jump".into()) {
@@ -200,13 +211,16 @@ impl State {
                 let max_speed = player.max_spindash_speed;
 
                 // Planar movement
+                let normal = player.base().get_floor_normal();
+                // Remap -1,1 to 0,2
+                let angle = normal.dot(forward) * 0.5 + 1.0;
                 if planar_input.length_squared() > 0.0 {
-                    velocity += forward * acceleration * delta;
+                    velocity += forward * acceleration * delta * angle;
                 } else if velocity.length_squared() > 0.0 {
                     velocity = velocity.lerp(Vector3::ZERO, deceleration * delta)
                 }
 
-                velocity = velocity.limit_length(Some(max_speed));
+                velocity = velocity.limit_length(Some(max_speed * angle));
 
                 let input = Input::singleton();
                 if input.is_action_just_pressed(c"jump".into()) {
