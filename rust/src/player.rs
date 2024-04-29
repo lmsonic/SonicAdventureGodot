@@ -105,7 +105,7 @@ impl Player {
         match &self.view {
             Some(camera) => input.rotated(Vector3::UP, camera.get_rotation().y),
             None => {
-                godot_warn!("Camera in player is not set");
+                godot_warn!("Camera is not set");
                 input
             }
         }
@@ -149,6 +149,42 @@ impl Player {
         godot_print!("{:?}", self.current_state);
     }
 
+    pub fn handle_acceleration(
+        &mut self,
+        velocity: &mut Vector3,
+        acceleration: f32,
+        deceleration: f32,
+        max_speed: f32,
+        delta: f32,
+    ) {
+        // Planar movement
+        let forward = self.get_forward();
+        let planar_input = self.camera_relative_input();
+        velocity.y = 0.0;
+
+        if planar_input.length_squared() > 0.1 {
+            *velocity += forward * acceleration * delta;
+        } else if velocity.length_squared() > 0.1 {
+            *velocity -= velocity.normalized() * deceleration * delta;
+        } else {
+            *velocity = Vector3::ZERO;
+        }
+
+        *velocity = velocity.limit_length(Some(max_speed));
+    }
+
+    pub fn handle_jump(&mut self, velocity: &mut Vector3) {
+        let input = Input::singleton();
+        let normal = self.base().get_floor_normal();
+
+        if input.is_action_just_pressed(c"jump".into()) {
+            let jump_velocity = self.jump_velocity();
+            *velocity += normal * jump_velocity * 0.5;
+            velocity.y += jump_velocity * 0.5;
+            self.play_audio("res://sounds/jump.ogg");
+        }
+    }
+
     pub fn closest_target_in_front(&self) -> Option<Gd<Node3D>> {
         let forward = self.get_forward();
         self.base()
@@ -174,6 +210,10 @@ impl Player {
                     .distance_squared_to(self.base().get_position());
                 distance_a.partial_cmp(&distance_b).expect("Comparing Nan")
             })
+    }
+
+    pub fn handle_gravity(&self, velocity: &mut Vector3, delta: f32) {
+        velocity.y -= self.gravity * delta;
     }
 }
 #[godot_api]
@@ -202,7 +242,7 @@ impl ICharacterBody3D for Player {
             self.change_state(new_state);
         }
 
-        if self.base().get_position().y < -20.0 {
+        if self.base().get_position().y < -10.0 {
             self.base().get_tree().unwrap().reload_current_scene();
         }
     }
