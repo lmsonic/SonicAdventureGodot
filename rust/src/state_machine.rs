@@ -20,7 +20,7 @@ impl State {
 
         match self {
             State::Running => {
-                let model = player.model.clone().unwrap();
+                let mut model = player.model.clone().unwrap();
                 if previous_state == State::AirBall {
                     let mut tween = player.to_gd().create_tween().unwrap();
 
@@ -36,7 +36,6 @@ impl State {
                         Vector3::ONE.to_variant(),
                         0.2,
                     );
-
                     player.play_audio("res://sounds/land.ogg");
                 }
                 player.has_homing_attack = true;
@@ -288,22 +287,22 @@ impl State {
                     particles.set_emitting(false);
                     footsteps.set_stream_paused(true);
                 };
-                player.rotate_on_input(player.rotation_speed, delta);
+                player.rotate_on_input(*self, player.rotation_speed, delta);
             }
             State::AirBall | State::HomingAttack => {
                 let rot = player.spin_speed * delta as f32;
-                model.rotate_object_local(Vector3::RIGHT, rot);
-                player.rotate_on_input(player.air_rotation_speed, delta);
+                model.rotate_x(rot);
+                player.rotate_on_input(*self, player.air_rotation_speed, delta);
             }
             State::SpindashCharge => {
                 let rot = player.spin_speed * delta as f32;
-                model.rotate_object_local(Vector3::RIGHT, rot);
-                player.rotate_on_input(player.rotation_speed, delta);
+                model.rotate_x(rot);
+                player.rotate_on_input(*self, player.rotation_speed, delta);
             }
             State::GroundBall => {
                 let rot = 2.0 * player.base().get_velocity().length() * delta as f32;
-                model.rotate_object_local(Vector3::RIGHT, rot);
-                player.rotate_on_input(player.rotation_speed, delta);
+                model.rotate_x(rot);
+                player.rotate_on_input(*self, player.rotation_speed, delta);
             }
         }
         None

@@ -105,8 +105,6 @@ pub(crate) struct Player {
     #[init(default = true)]
     pub has_homing_attack: bool,
     pub homing_attack_target: Option<Gd<Node3D>>,
-    pub speed: f32,
-    pub rotation_y: f32,
 
     #[export]
     #[init(default = State::Running)]
@@ -159,17 +157,23 @@ impl Player {
         }
     }
 
-    pub fn rotate_on_input(&mut self, rotation_speed: f32, delta: f64) {
+    pub fn rotate_on_input(&mut self, state: State, rotation_speed: f32, delta: f64) {
         let planar_input = self.camera_relative_input().normalized();
         let delta = delta as f32;
         let mut rotation = self.base().get_rotation();
         if planar_input.length_squared() > 0.0 {
             let mut velocity = self.base().get_velocity();
-            if self.base().is_on_floor() && planar_input.dot(self.get_forward()) < -0.7 {
+            if state == State::Running && planar_input.dot(self.get_forward()) < -0.7 {
                 velocity *= 0.5;
                 self.base_mut().set_velocity(velocity);
             }
             let target_rotation = Vector2::new(planar_input.z, planar_input.x).angle();
+            let rotation_speed = rotation_speed
+                / if velocity.length_squared() < 1.0 {
+                    1.0
+                } else {
+                    velocity.length()
+                };
             rotation.y = rotation
                 .y
                 .lerp_angle(target_rotation, delta * rotation_speed);
