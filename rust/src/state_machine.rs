@@ -5,7 +5,7 @@ use crate::player::Player;
 #[derive(Clone, Copy, PartialEq, Eq, Debug, GodotConvert, Var, Export)]
 #[godot(via = GString)]
 pub enum State {
-    Grounded,
+    Running,
     AirBall,
     SpindashCharge,
     GroundBall,
@@ -19,7 +19,7 @@ impl State {
         let mut footsteps = player.footsteps.clone().unwrap();
 
         match self {
-            State::Grounded => {
+            State::Running => {
                 let model = player.model.clone().unwrap();
                 if previous_state == State::AirBall {
                     let mut tween = player.to_gd().create_tween().unwrap();
@@ -47,10 +47,6 @@ impl State {
                     Vector3::ZERO.to_variant(),
                     0.1,
                 );
-                let velocity = player.base().get_velocity();
-                player
-                    .base_mut()
-                    .set_velocity(Vector3::new(velocity.x, 0.0, velocity.z));
 
                 trail.set_emitting(false);
                 player.base_mut().set_floor_snap_length(0.5);
@@ -58,8 +54,6 @@ impl State {
             }
             State::SpindashCharge => {
                 player.spindash_timer = 0.0;
-                let velocity = player.base().get_velocity();
-                player.base_mut().set_velocity(Vector3::ZERO);
 
                 trail.set_emitting(true);
                 particles.set_emitting(false);
@@ -81,13 +75,8 @@ impl State {
                     }
                     None => {
                         let mut velocity = player.base().get_velocity();
-                        let forward = player.get_forward();
-                        let y_speed = velocity.y;
-                        velocity.y = 0.0;
-                        velocity += forward * player.homing_attack_force;
-                        velocity = velocity.limit_length(Some(player.max_air_speed));
-                        velocity.y = y_speed;
-                        player.base_mut().set_velocity(velocity)
+                        velocity += player.get_forward() * player.homing_attack_force;
+                        player.base_mut().set_velocity(velocity);
                     }
                 }
                 trail.set_emitting(true);
@@ -117,20 +106,20 @@ impl State {
     pub fn process_physics(&self, player: &mut Player, delta: f64) -> Option<State> {
         let input = Input::singleton();
         let delta = delta as f32;
-        let mut velocity = player.base().get_velocity();
 
         match self {
-            State::Grounded => {
+            State::Running => {
                 let acceleration = player.acceleration;
                 let deceleration = player.deceleration;
                 let max_speed = player.max_speed;
 
-                velocity.y = 0.0;
-                player.handle_acceleration(
-                    &mut velocity,
+                let mut velocity = player.handle_acceleration(
                     acceleration,
                     deceleration,
                     max_speed,
+                    player.slope_assistance,
+                    player.slope_drag,
+                    0.0,
                     delta,
                 );
 
@@ -152,19 +141,18 @@ impl State {
                 let deceleration = player.air_deceleration;
                 let max_speed = player.max_air_speed;
 
-                let y_speed = velocity.y;
-
                 // Planar movement
-                velocity.y = 0.0;
-                player.handle_acceleration(
-                    &mut velocity,
+                let mut velocity = player.handle_acceleration(
                     acceleration,
                     deceleration,
                     max_speed,
+                    0.0,
+                    0.0,
+                    0.0,
                     delta,
                 );
 
-                velocity.y = y_speed;
+                velocity.y = player.base().get_velocity().y;
                 player.handle_gravity(&mut velocity, delta);
 
                 // Variable jump
@@ -176,7 +164,7 @@ impl State {
                 player.base_mut().move_and_slide();
 
                 if player.base().is_on_floor() {
-                    Some(State::Grounded)
+                    Some(State::Running)
                 } else if player.has_homing_attack && input.is_action_just_pressed(c"jump".into()) {
                     player.has_homing_attack = false;
                     Some(State::HomingAttack)
@@ -189,6 +177,9 @@ impl State {
                 player.spindash_timer =
                     (player.spindash_timer + delta).clamp(0.0, max_spindash_timer);
 
+                let mut velocity = player.base().get_velocity();
+                velocity = velocity.lerp(Vector3::ZERO, player.deceleration * delta);
+                player.base_mut().set_velocity(velocity);
                 player.base_mut().move_and_slide();
 
                 if input.is_action_just_released(c"spindash".into()) {
@@ -202,12 +193,13 @@ impl State {
                 let deceleration = player.spindash_deceleration;
                 let max_speed = player.max_spindash_speed;
 
-                velocity.y = 0.0;
-                player.handle_acceleration(
-                    &mut velocity,
+                let mut velocity = player.handle_acceleration(
                     acceleration,
                     deceleration,
                     max_speed,
+                    player.ball_slope_assistance,
+                    player.ball_slope_drag,
+                    player.ball_flat_drag,
                     delta,
                 );
 
@@ -220,7 +212,7 @@ impl State {
                     Some(State::SpindashCharge)
                 } else if player.base().is_on_floor() {
                     if velocity.length() < 2.0 {
-                        Some(State::Grounded)
+                        Some(State::Running)
                     } else {
                         None
                     }
@@ -238,8 +230,8 @@ impl State {
 
                         if player_pos.distance_squared_to(target.get_global_position()) < 0.1 {
                             // Bounce on target
-                            velocity.x *= 0.5;
-                            velocity.z *= 0.5;
+                            velocity.x *= 0.2;
+                            velocity.z *= 0.2;
                             velocity.y = player.jump_velocity();
 
                             player.base_mut().set_velocity(velocity);
@@ -272,7 +264,7 @@ impl State {
         // Animation
         let mut model = player.model.clone().unwrap();
         match self {
-            State::Grounded => {
+            State::Running => {
                 let mut animation = player.animation.clone().unwrap();
                 let mut particles = player.particles.clone().unwrap();
                 let mut footsteps = player.footsteps.clone().unwrap();
@@ -296,17 +288,22 @@ impl State {
                     particles.set_emitting(false);
                     footsteps.set_stream_paused(true);
                 };
-                player.rotate_on_input(delta);
+                player.rotate_on_input(player.rotation_speed, delta);
             }
-            State::AirBall | State::SpindashCharge | State::HomingAttack => {
+            State::AirBall | State::HomingAttack => {
                 let rot = player.spin_speed * delta as f32;
                 model.rotate_object_local(Vector3::RIGHT, rot);
-                player.rotate_on_input(delta);
+                player.rotate_on_input(player.air_rotation_speed, delta);
+            }
+            State::SpindashCharge => {
+                let rot = player.spin_speed * delta as f32;
+                model.rotate_object_local(Vector3::RIGHT, rot);
+                player.rotate_on_input(player.rotation_speed, delta);
             }
             State::GroundBall => {
                 let rot = 2.0 * player.base().get_velocity().length() * delta as f32;
                 model.rotate_object_local(Vector3::RIGHT, rot);
-                player.rotate_on_input(delta);
+                player.rotate_on_input(player.rotation_speed, delta);
             }
         }
         None

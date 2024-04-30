@@ -83,3 +83,12 @@ depth = 2.0
 transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, -13.5, 0.5, -5.1)
 polygon = PackedVector2Array(0, 0, 1.2, 2, 1.8, 2, 3, 0)
 depth = 2.0
+
+[node name="CSGSphere3D" type="CSGSphere3D" parent="." groups=["targettable"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.6698, 5.20848, -10.4325)
+
+[node name="CSGSphere3D2" type="CSGSphere3D" parent="." groups=["targettable"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.6698, 3.42612, -6.53135)
+
+[node name="CSGSphere3D3" type="CSGSphere3D" parent="." groups=["targettable"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.6698, 1.45756, -3.1368)

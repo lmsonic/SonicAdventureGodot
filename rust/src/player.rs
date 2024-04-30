@@ -1,5 +1,8 @@
+use std::{f32::consts::PI, f64::consts::E};
+
 use godot::{
     engine::{AnimationPlayer, CharacterBody3D, GpuParticles3D, ICharacterBody3D, InputEvent},
+    obj::WithBaseField,
     prelude::*,
 };
 
@@ -72,24 +75,52 @@ pub(crate) struct Player {
     #[init(default = 10.0)]
     #[export]
     pub rotation_speed: f32,
+    #[init(default = 5.0)]
+    #[export]
+    pub air_rotation_speed: f32,
     #[init(default = 20.0)]
     #[export]
     pub spin_speed: f32,
+    #[init(default = 3.0)]
+    #[export]
+    pub slope_assistance: f32,
+    #[init(default = 3.0)]
+    #[export]
+    pub slope_drag: f32,
+
+    #[init(default = 6.0)]
+    #[export]
+    pub ball_slope_assistance: f32,
+    #[init(default = 6.0)]
+    #[export]
+    pub ball_slope_drag: f32,
+    #[init(default = 2.0)]
+    #[export]
+    pub ball_flat_drag: f32,
 
     #[init(default = 200.0)]
     #[export]
     pub spindash_speed: f32,
-    rotation_y: f32,
     pub spindash_timer: f32,
     #[init(default = true)]
     pub has_homing_attack: bool,
     pub homing_attack_target: Option<Gd<Node3D>>,
+    pub speed: f32,
+    pub rotation_y: f32,
 
     #[export]
-    #[init(default = State::Grounded)]
+    #[init(default = State::Running)]
     current_state: State,
 
     base: Base<CharacterBody3D>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum SlopeKind {
+    NotOnFloor,
+    Flat,
+    Uphill,
+    Downhill,
 }
 
 impl Player {
@@ -112,7 +143,7 @@ impl Player {
     }
 
     pub fn get_forward(&self) -> Vector3 {
-        -Vector3::FORWARD.rotated(Vector3::UP, self.rotation_y)
+        -Vector3::FORWARD.rotated(Vector3::UP, self.base().get_rotation().y)
     }
 
     pub fn jump_velocity(&self) -> f32 {
@@ -128,18 +159,22 @@ impl Player {
         }
     }
 
-    pub fn rotate_on_input(&mut self, delta: f64) {
+    pub fn rotate_on_input(&mut self, rotation_speed: f32, delta: f64) {
         let planar_input = self.camera_relative_input().normalized();
         let delta = delta as f32;
-        let planar_input = Vector2::new(planar_input.z, planar_input.x);
         let mut rotation = self.base().get_rotation();
         if planar_input.length_squared() > 0.0 {
-            self.rotation_y = planar_input.angle();
+            let mut velocity = self.base().get_velocity();
+            if self.base().is_on_floor() && planar_input.dot(self.get_forward()) < -0.7 {
+                velocity *= 0.5;
+                self.base_mut().set_velocity(velocity);
+            }
+            let target_rotation = Vector2::new(planar_input.z, planar_input.x).angle();
+            rotation.y = rotation
+                .y
+                .lerp_angle(target_rotation, delta * rotation_speed);
+            self.base_mut().set_rotation(rotation);
         }
-        rotation.y = rotation
-            .y
-            .lerp_angle(self.rotation_y, delta * self.rotation_speed);
-        self.base_mut().set_rotation(rotation);
     }
     pub fn change_state(&mut self, new_state: State) {
         let current_state = self.current_state;
@@ -149,28 +184,22 @@ impl Player {
         godot_print!("{:?}", self.current_state);
     }
 
-    pub fn handle_acceleration(
-        &mut self,
-        velocity: &mut Vector3,
-        acceleration: f32,
-        deceleration: f32,
-        max_speed: f32,
-        delta: f32,
-    ) {
-        // Planar movement
-        let forward = self.get_forward();
-        let planar_input = self.camera_relative_input();
-        velocity.y = 0.0;
-
-        if planar_input.length_squared() > 0.1 {
-            *velocity += forward * acceleration * delta;
-        } else if velocity.length_squared() > 0.1 {
-            *velocity -= velocity.normalized() * deceleration * delta;
-        } else {
-            *velocity = Vector3::ZERO;
+    pub fn get_slope_kind(&self) -> SlopeKind {
+        if !self.base().is_on_floor() {
+            return SlopeKind::NotOnFloor;
         }
-
-        *velocity = velocity.limit_length(Some(max_speed));
+        let angle = self.base().get_floor_angle();
+        if angle < f32::to_radians(10.0) {
+            SlopeKind::Flat
+        } else {
+            let normal = self.base().get_floor_normal();
+            let forward = self.get_forward();
+            if normal.dot(forward) < 0.0 {
+                SlopeKind::Uphill
+            } else {
+                SlopeKind::Downhill
+            }
+        }
     }
 
     pub fn handle_jump(&mut self, velocity: &mut Vector3) {
@@ -183,6 +212,45 @@ impl Player {
             velocity.y += jump_velocity * 0.5;
             self.play_audio("res://sounds/jump.ogg");
         }
+    }
+
+    pub fn handle_acceleration(
+        &mut self,
+        acceleration: f32,
+        deceleration: f32,
+        max_speed: f32,
+        slope_assistance: f32,
+        slope_drag: f32,
+        flat_drag: f32,
+        delta: f32,
+    ) -> Vector3 {
+        // Planar movement
+        let forward = self.get_forward();
+        let planar_input = self.camera_relative_input();
+        let mut velocity = self.base().get_velocity();
+        velocity.y = 0.0;
+        let mut speed = velocity.length();
+        let dot = planar_input.dot(forward.normalized());
+        if planar_input.length_squared() > 0.0 {
+            speed += (acceleration + deceleration) * delta * dot;
+        }
+        if velocity.length_squared() > 0.0 {
+            speed -= deceleration * delta;
+        }
+        let angle = self.base().get_floor_angle();
+        let slope_kind = self.get_slope_kind();
+        match slope_kind {
+            SlopeKind::NotOnFloor => {}
+            SlopeKind::Flat => speed -= flat_drag * delta,
+            SlopeKind::Uphill => speed -= slope_drag * angle * delta,
+
+            SlopeKind::Downhill => speed += slope_assistance * angle * delta,
+        }
+
+        speed = speed.clamp(0.0, max_speed);
+
+        godot_print!("{speed} {angle} {slope_kind:?} {slope_drag} {slope_assistance} {flat_drag}");
+        forward * speed
     }
 
     pub fn closest_target_in_front(&self) -> Option<Gd<Node3D>> {
