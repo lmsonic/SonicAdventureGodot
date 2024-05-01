@@ -1,8 +1,10 @@
-[gd_scene load_steps=7 format=3 uid="uid://dtsgtalmq8rk7"]
+[gd_scene load_steps=10 format=3 uid="uid://dtsgtalmq8rk7"]
 
 [ext_resource type="PackedScene" uid="uid://dl2ed4gkybggf" path="res://objects/player.tscn" id="1_cugl0"]
 [ext_resource type="PackedScene" uid="uid://36mcsb6wrsdr" path="res://scenes/view.tscn" id="2_nqevt"]
 [ext_resource type="Material" uid="uid://bx6qeabdhq2s" path="res://addons/kenney_prototype_tools/materials/dark/material_01.tres" id="3_xwusv"]
+[ext_resource type="Script" path="res://objects/respawn_plane.gd" id="4_33irv"]
+[ext_resource type="Script" path="res://objects/targettable.gd" id="4_ud32e"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_kdlij"]
 sky_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
@@ -17,6 +19,9 @@ sky = SubResource("Sky_mhtox")
 tonemap_mode = 2
 glow_enabled = true
 
+[sub_resource type="BoxShape3D" id="BoxShape3D_pfjdm"]
+size = Vector3(400, 1, 400)
+
 [node name="Playground" type="Node3D"]
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
@@ -27,13 +32,13 @@ shadow_enabled = true
 environment = SubResource("Environment_56vci")
 
 [node name="Player" parent="." node_paths=PackedStringArray("view") instance=ExtResource("1_cugl0")]
-view = NodePath("../View")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.091898, 2.44734, 0.0273056)
 floor_stop_on_slope = false
 floor_constant_speed = true
 floor_block_on_wall = false
 floor_max_angle = 1.22173
 floor_snap_length = 0.5
+view = NodePath("../View")
 
 [node name="View" parent="." node_paths=PackedStringArray("target") instance=ExtResource("2_nqevt")]
 target = NodePath("../Player")
@@ -86,9 +91,21 @@ depth = 2.0
 
 [node name="CSGSphere3D" type="CSGSphere3D" parent="." groups=["targettable"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.6698, 5.20848, -10.4325)
+script = ExtResource("4_ud32e")
 
 [node name="CSGSphere3D2" type="CSGSphere3D" parent="." groups=["targettable"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.6698, 3.42612, -6.53135)
+script = ExtResource("4_ud32e")
 
 [node name="CSGSphere3D3" type="CSGSphere3D" parent="." groups=["targettable"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.6698, 1.45756, -3.1368)
+script = ExtResource("4_ud32e")
+
+[node name="RespawnPlane" type="Area3D" parent="."]
+script = ExtResource("4_33irv")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="RespawnPlane"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -9, 0)
+shape = SubResource("BoxShape3D_pfjdm")
+
+[connection signal="body_entered" from="RespawnPlane" to="RespawnPlane" method="_on_body_entered"]

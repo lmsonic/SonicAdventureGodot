@@ -25,7 +25,7 @@ const DebuggerHistory = preload("debugger_history.gd")
 ## output so you can disable it here.
 @export var ignore_events:bool = false
 
-## If set to true, state changes will not be printed in the history 
+## If set to true, state changes will not be printed in the history
 ## panel. If you have a large amount of state changes, this may clutter
 ## the output so you can disable it here.
 @export var ignore_state_changes:bool = false
@@ -54,8 +54,8 @@ var _history:DebuggerHistory = null
 
 func _ready():
 	# always run, even if the game is paused
-	process_mode = Node.PROCESS_MODE_ALWAYS	
-	
+	process_mode = Node.PROCESS_MODE_ALWAYS
+
 	# initialize the buffer
 	_history = DebuggerHistory.new(maximum_lines)
 
@@ -65,33 +65,33 @@ func _ready():
 	var to_watch = get_node_or_null(initial_node_to_watch)
 	if is_instance_valid(to_watch):
 		debug_node(to_watch)
-	
+
 	# mirror the editor settings
 	%IgnoreEventsCheckbox.set_pressed_no_signal(ignore_events)
 	%IgnoreStateChangesCheckbox.set_pressed_no_signal(ignore_state_changes)
 	%IgnoreTransitionsCheckbox.set_pressed_no_signal(ignore_transitions)
-		
-	
+
+
 
 ## Adds an item to the history list.
 func add_history_entry(text:String):
 	_history.add_history_entry(Engine.get_process_frames(), text)
 
-## Sets up the debugger to track the given state chart. If the given node is not 
+## Sets up the debugger to track the given state chart. If the given node is not
 ## a state chart, it will search the children for a state chart. If no state chart
 ## is found, the debugger will be disabled.
 func debug_node(root:Node) -> bool:
 	# if we are not enabled, we do nothing
 	if not enabled:
 		return false
-	
+
 	_root = root
-	
+
 	# disconnect all existing signals
 	_disconnect_all_signals()
 
 	var success = _debug_node(root)
-	
+
 
 	# if we have no success, we disable the debugger
 	if not success:
@@ -119,7 +119,7 @@ func _debug_node(root:Node) -> bool:
 	# no luck, search the children
 	for child in root.get_children():
 		if _debug_node(child):
-			# found one, return			
+			# found one, return
 			return true
 
 	# no luck, return false
@@ -136,7 +136,7 @@ func _disconnect_all_signals():
 	if is_instance_valid(_state_chart):
 		if not ignore_events:
 			_state_chart.event_received.disconnect(_on_event_received)
-	
+
 	for state in _connected_states:
 		# in case the state has been destroyed meanwhile
 		if is_instance_valid(state):
@@ -193,25 +193,25 @@ func _process(delta):
 
 	# walk over the state chart and find all active states
 	_collect_active_states(_state_chart, root )
-	
+
 	# also show the values of all variables
 	var items = _state_chart._expression_properties.keys()
-	
+
 	if items.size() <= 0:
 		return # nothing to show
-	
+
 	# sort by name so it doesn't flicker all the time
 	items.sort()
-	
+
 	var properties_root = root.create_child()
 	properties_root.set_text(0, "< Expression properties >")
-	
+
 	for item in items:
 		var value = str(_state_chart._expression_properties.get(item))
-		
+
 		var property_line = properties_root.create_child()
 		property_line.set_text(0, "%s = %s" % [item, value])
-	
+
 
 func _collect_active_states(root:Node, parent:TreeItem):
 	for child in root.get_children():
@@ -242,28 +242,28 @@ func _on_event_received(event:StringName):
 	if ignore_events:
 		return
 
-	_history.add_event(Engine.get_process_frames(), event)	
+	_history.add_event(Engine.get_process_frames(), event)
 
-	
+
 func _on_state_entered(state:StateChartState):
 	if ignore_state_changes:
 		return
-		
+
 	_history.add_state_entered(Engine.get_process_frames(), state.name)
 
 
 func _on_state_exited(state:StateChartState):
 	if ignore_state_changes:
 		return
-		
+
 	_history.add_state_exited(Engine.get_process_frames(), state.name)
 
 
 func _on_timer_timeout():
 	# ignore the timer if the history edit isn't visible
 	if not _history_edit.visible or not _history.dirty:
-		return 
-	
+		return
+
 	# fill the history field
 	_history_edit.text = _history.get_history_text()
 	_history_edit.scroll_vertical = _history_edit.get_line_count() - 1

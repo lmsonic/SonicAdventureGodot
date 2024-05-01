@@ -1,4 +1,4 @@
-[gd_scene load_steps=25 format=3 uid="uid://dl2ed4gkybggf"]
+[gd_scene load_steps=24 format=3 uid="uid://dl2ed4gkybggf"]
 
 [ext_resource type="Script" path="res://objects/player.gd" id="1_gwnyu"]
 [ext_resource type="PackedScene" uid="uid://c0e27836xgmhi" path="res://objects/character.tscn" id="2_nero3"]
@@ -11,7 +11,6 @@
 [ext_resource type="Script" path="res://addons/godot_state_charts/transition.gd" id="8_asbbi"]
 [ext_resource type="Script" path="res://addons/godot_state_charts/state_is_active_guard.gd" id="10_lgu32"]
 [ext_resource type="Script" path="res://addons/godot_state_charts/not_guard.gd" id="11_wsulv"]
-[ext_resource type="PackedScene" uid="uid://bcwkugn6v3oy7" path="res://addons/godot_state_charts/utilities/state_chart_debugger.tscn" id="12_jno0k"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_gdq8c"]
 radius = 0.3
@@ -80,14 +79,14 @@ guard = SubResource("Resource_lenpd")
 [node name="Player" type="CharacterBody3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 script = ExtResource("1_gwnyu")
-deceleration = 20.0
-slope_assistance = 5.0
-slope_drag = 5.0
-spindash_max_speed = 20.0
-spindash_speed = 20.0
-air_acceleration = 7.0
-air_deceleration = 7.0
-air_rotation_speed = 60.0
+gravity = null
+jump_height = null
+acceleration = null
+deceleration = null
+max_speed = null
+air_acceleration = null
+air_deceleration = null
+max_air_speed = null
 
 [node name="Collider" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
@@ -155,22 +154,29 @@ initial_state = NodePath("Grounded")
 
 [node name="Grounded" type="Node" parent="StateChart/Root"]
 script = ExtResource("6_ttfhf")
-initial_state = NodePath("Running")
+initial_state = NodePath("Idle")
+
+[node name="Idle" type="Node" parent="StateChart/Root/Grounded"]
+script = ExtResource("7_n7ffr")
+
+[node name="Move" type="Node" parent="StateChart/Root/Grounded/Idle"]
+script = ExtResource("8_asbbi")
+to = NodePath("../../Running")
+event = &"move"
 
 [node name="Running" type="Node" parent="StateChart/Root/Grounded"]
 script = ExtResource("7_n7ffr")
+
+[node name="Stop" type="Node" parent="StateChart/Root/Grounded/Running"]
+script = ExtResource("8_asbbi")
+to = NodePath("../../Idle")
+event = &"stop"
 
 [node name="SpindashCharge" type="Node" parent="StateChart/Root/Grounded"]
 script = ExtResource("7_n7ffr")
 
 [node name="Spindash" type="Node" parent="StateChart/Root/Grounded"]
 script = ExtResource("7_n7ffr")
-
-[node name="ToRunning" type="Node" parent="StateChart/Root/Grounded/Spindash"]
-script = ExtResource("8_asbbi")
-to = NodePath("../../Running")
-event = &"running"
-delay_seconds = 0.1
 
 [node name="ToJump" type="Node" parent="StateChart/Root/Grounded"]
 script = ExtResource("8_asbbi")
@@ -183,16 +189,6 @@ script = ExtResource("8_asbbi")
 to = NodePath("../../Airborne")
 event = &"airborne"
 
-[node name="ToSpindashCharge" type="Node" parent="StateChart/Root/Grounded"]
-script = ExtResource("8_asbbi")
-to = NodePath("../SpindashCharge")
-event = &"charge_spindash"
-
-[node name="ToSpindash" type="Node" parent="StateChart/Root/Grounded"]
-script = ExtResource("8_asbbi")
-to = NodePath("../Spindash")
-event = &"spindash"
-
 [node name="Airborne" type="Node" parent="StateChart/Root"]
 script = ExtResource("6_ttfhf")
 initial_state = NodePath("Airball")
@@ -200,18 +196,8 @@ initial_state = NodePath("Airball")
 [node name="Airball" type="Node" parent="StateChart/Root/Airborne"]
 script = ExtResource("7_n7ffr")
 
-[node name="ToHomingAttack" type="Node" parent="StateChart/Root/Airborne/Airball"]
-script = ExtResource("8_asbbi")
-to = NodePath("../../HomingAttack")
-event = &"homing_attack"
-
 [node name="HomingAttack" type="Node" parent="StateChart/Root/Airborne"]
 script = ExtResource("7_n7ffr")
-
-[node name="ToAirball" type="Node" parent="StateChart/Root/Airborne/HomingAttack"]
-script = ExtResource("8_asbbi")
-to = NodePath("../../Airball")
-event = &"airball"
 
 [node name="Jump" type="Node" parent="StateChart/Root/Airborne"]
 script = ExtResource("7_n7ffr")
@@ -225,35 +211,12 @@ script = ExtResource("8_asbbi")
 to = NodePath("../../Grounded")
 event = &"grounded"
 
-[node name="StateChartDebugger" parent="." instance=ExtResource("12_jno0k")]
-offset_right = -965.0
-offset_bottom = -430.0
-initial_node_to_watch = NodePath("../StateChart")
-
 [connection signal="state_entered" from="StateChart/Root/Grounded" to="." method="_on_grounded_state_entered"]
 [connection signal="state_input" from="StateChart/Root/Grounded" to="." method="_on_grounded_state_input"]
-[connection signal="state_physics_processing" from="StateChart/Root/Grounded" to="." method="_on_grounded_state_physics_processing"]
-[connection signal="state_processing" from="StateChart/Root/Grounded" to="." method="_on_grounded_state_processing"]
-[connection signal="state_entered" from="StateChart/Root/Grounded/Running" to="." method="_on_running_state_entered"]
-[connection signal="state_input" from="StateChart/Root/Grounded/Running" to="." method="_on_running_state_input"]
+[connection signal="state_entered" from="StateChart/Root/Grounded/Idle" to="." method="_on_idle_state_entered"]
+[connection signal="state_input" from="StateChart/Root/Grounded/Idle" to="." method="_on_idle_state_input"]
 [connection signal="state_physics_processing" from="StateChart/Root/Grounded/Running" to="." method="_on_running_state_physics_processing"]
-[connection signal="state_processing" from="StateChart/Root/Grounded/Running" to="." method="_on_running_state_processing"]
-[connection signal="state_entered" from="StateChart/Root/Grounded/SpindashCharge" to="." method="_on_spindash_charge_state_entered"]
-[connection signal="state_exited" from="StateChart/Root/Grounded/SpindashCharge" to="." method="_on_spindash_charge_state_exited"]
-[connection signal="state_input" from="StateChart/Root/Grounded/SpindashCharge" to="." method="_on_spindash_charge_state_input"]
-[connection signal="state_processing" from="StateChart/Root/Grounded/SpindashCharge" to="." method="_on_spindash_charge_state_processing"]
-[connection signal="state_input" from="StateChart/Root/Grounded/Spindash" to="." method="_on_spindash_state_input"]
-[connection signal="state_physics_processing" from="StateChart/Root/Grounded/Spindash" to="." method="_on_spindash_state_physics_processing"]
-[connection signal="state_processing" from="StateChart/Root/Grounded/Spindash" to="." method="_on_spindash_state_processing"]
-[connection signal="event_received" from="StateChart/Root/Airborne" to="." method="_on_airborne_event_received"]
-[connection signal="state_processing" from="StateChart/Root/Airborne" to="." method="_on_airborne_state_processing"]
-[connection signal="state_entered" from="StateChart/Root/Airborne/Airball" to="." method="_on_airball_state_entered"]
-[connection signal="state_input" from="StateChart/Root/Airborne/Airball" to="." method="_on_airball_state_input"]
 [connection signal="state_physics_processing" from="StateChart/Root/Airborne/Airball" to="." method="_on_airball_state_physics_processing"]
-[connection signal="state_processing" from="StateChart/Root/Airborne/Airball" to="." method="_on_airball_state_processing"]
-[connection signal="state_entered" from="StateChart/Root/Airborne/HomingAttack" to="." method="_on_homing_attack_state_entered"]
-[connection signal="state_physics_processing" from="StateChart/Root/Airborne/HomingAttack" to="." method="_on_homing_attack_state_physics_processing"]
-[connection signal="state_processing" from="StateChart/Root/Airborne/HomingAttack" to="." method="_on_homing_attack_state_processing"]
 [connection signal="state_entered" from="StateChart/Root/Airborne/Jump" to="." method="_on_jump_state_entered"]
 
 [editable path="Model/Character"]

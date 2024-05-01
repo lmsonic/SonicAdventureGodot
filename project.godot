@@ -38,6 +38,10 @@ window/size/viewport_height=720
 
 movie_writer/movie_file="C:/Users/Kenney/Desktop/video-footage.avi"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_state_charts/plugin.cfg")
+
 [input]
 
 move_right={
