@@ -210,7 +210,7 @@ func get_closest_targettable() -> Targettable:
 	var targettables := get_tree().get_nodes_in_group("targettable")
 	targettables = targettables.filter(func (x:Targettable) -> bool:
 		var delta := global_position.direction_to(x.global_position)
-		return delta.dot(get_forward()) > 0.0)
+		return delta.dot(get_forward()) > 0.0 and delta.y < 0.5)
 	targettables = targettables.filter(func (x:Targettable) -> bool:
 		return x.global_position.distance_squared_to(global_position) < homing_attack_radius * homing_attack_radius)
 	return targettables.reduce(func(min:Targettable, x:Targettable) -> Targettable: return x \
