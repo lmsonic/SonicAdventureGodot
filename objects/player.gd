@@ -6,6 +6,8 @@ class_name Player extends CharacterBody3D
 @onready var particles_trail: GPUParticles3D = $ParticlesTrail
 @onready var trail: GPUParticles3D = $Trail
 @onready var animation: AnimationPlayer = $Model/Character/AnimationPlayer
+@onready var raycast_group: RaycastGroup = $RaycastGroup
+
 
 @export_group("Jump")
 @export var gravity:=20.0
@@ -38,12 +40,15 @@ class_name Player extends CharacterBody3D
 @export_group("Rotation")
 @export var rotation_speed := 70.0
 @export var air_rotation_speed := 50.0
+@export var align_rotation_speed := 10.0
 @export var spin_speed := 30.0
 
 var speed:=0.0
 var spindash_timer:=0.0
 var has_homing_attack:=true
 var homing_attack_target:Targettable=null
+var rotation_y := 0.0
+
 @onready var state_chart: StateChart = $StateChart
 
 func get_forward() -> Vector3:
@@ -103,9 +108,20 @@ func handle_variable_jump() -> void:
 func handle_rotation(delta:float,rotation_speed:float) -> void:
 	var input := camera_relative_input()
 	if input.length_squared() > 0.0:
-		var target_rotation := Vector2(input.z,input.x).angle()
+		var target_angle := Vector2(input.z,input.x).angle()
 		rotation_speed = rotation_speed / (speed if speed * speed >= 1.0 else 1.0)
-		rotation.y = lerp_angle(rotation.y,target_rotation,delta * rotation_speed)
+		rotation_y = lerp_angle(rotation_y,target_angle,delta*rotation_speed)
+	var normal := raycast_group.get_floor_normal()
+	DebugDraw3D.draw_arrow(global_position,global_position + normal)
+	if not is_on_floor() || normal == Vector3.ZERO:
+		var target_rotation := Quaternion(Vector3.UP,rotation_y).normalized()
+		quaternion = quaternion.slerp(target_rotation,delta * align_rotation_speed).normalized()
+	else:
+		var right := normal.cross(Vector3.BACK)
+		var target_rotation := Basis(right,normal,Vector3.BACK).orthonormalized().rotated(normal,rotation_y)
+		global_transform.basis = global_transform.basis.slerp(target_rotation,align_rotation_speed*delta)
+
+
 
 func _on_grounded_state_entered() -> void:
 	velocity.y = 0.0
@@ -120,6 +136,7 @@ func _on_running_state_physics_processing(delta: float) -> void:
 	handle_slopes(delta,slope_assistance,slope_drag)
 	handle_acceleration(acceleration,deceleration,max_speed,delta)
 	move_and_slide()
+	handle_rotation(delta,air_rotation_speed)
 	if not is_on_floor():
 		state_chart.send_event("airborne")
 	if Input.is_action_just_pressed("spindash"):
@@ -130,17 +147,12 @@ func _on_airball_state_physics_processing(delta: float) -> void:
 	handle_gravity(delta)
 	handle_variable_jump()
 	move_and_slide()
+	handle_rotation(delta,air_rotation_speed)
 	if is_on_floor():
 		state_chart.send_event("grounded")
 	if has_homing_attack and Input.is_action_just_pressed("jump"):
 		state_chart.send_event("homing_attack")
 		has_homing_attack = false
-
-func _on_grounded_state_processing(delta: float) -> void:
-	handle_rotation(delta,rotation_speed)
-
-func _on_airborne_state_processing(delta: float) -> void:
-	handle_rotation(delta,air_rotation_speed)
 
 func _on_airborne_event_received(event: StringName) -> void:
 	if event == "grounded":
@@ -198,6 +210,7 @@ func _on_spindash_state_processing(delta: float) -> void:
 func _on_spindash_state_physics_processing(delta: float) -> void:
 	handle_slopes(delta,spindash_slope_assistance,spindash_slope_drag,spindash_flat_drag)
 	handle_acceleration(spindash_acceleration,spindash_deceleration,spindash_max_speed,delta)
+	handle_rotation(delta,rotation_speed)
 	move_and_slide()
 	if not is_on_floor():
 		state_chart.send_event("airborne")

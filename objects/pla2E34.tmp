@@ -83,11 +83,30 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 floor_stop_on_slope = false
 floor_max_angle = 1.39626
 script = ExtResource("1_gwnyu")
-slope_assistance = 1.0
-slope_drag = 1.0
-spindash_slope_assistance = 1.0
-spindash_slope_drag = 1.0
-spindash_flat_drag = 1.0
+gravity = null
+jump_height = null
+homing_attack_force = null
+homing_attack_radius = null
+acceleration = null
+deceleration = null
+max_speed = null
+slope_assistance = null
+slope_drag = null
+spindash_acceleration = null
+spindash_deceleration = null
+spindash_max_speed = null
+spindash_speed = null
+fully_charged_spindash_time = null
+spindash_slope_assistance = null
+spindash_slope_drag = null
+spindash_flat_drag = null
+air_acceleration = null
+air_deceleration = null
+max_air_speed = null
+rotation_speed = null
+air_rotation_speed = null
+align_rotation_speed = null
+spin_speed = null
 
 [node name="Collider" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
@@ -232,7 +251,7 @@ initial_node_to_watch = NodePath("../StateChart")
 
 [node name="RaycastGroup" type="Node3D" parent="."]
 script = ExtResource("13_3j8vb")
-player = Object(CharacterBody3D,"_import_path":NodePath(""),"unique_name_in_owner":false,"process_mode":0,"process_priority":0,"process_physics_priority":0,"process_thread_group":0,"editor_description":"","transform":Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0),"rotation_edit_mode":0,"rotation_order":2,"top_level":false,"visible":true,"visibility_parent":NodePath(""),"disable_mode":0,"collision_layer":1,"collision_mask":1,"collision_priority":1.0,"input_ray_pickable":true,"input_capture_on_drag":false,"axis_lock_linear_x":false,"axis_lock_linear_y":false,"axis_lock_linear_z":false,"axis_lock_angular_x":false,"axis_lock_angular_y":false,"axis_lock_angular_z":false,"motion_mode":0,"up_direction":Vector3(0, 1, 0),"slide_on_ceiling":true,"velocity":Vector3(0, 0, 0),"max_slides":6,"wall_min_slide_angle":0.261799,"floor_stop_on_slope":false,"floor_constant_speed":false,"floor_block_on_wall":true,"floor_max_angle":1.39626,"floor_snap_length":0.1,"platform_on_leave":0,"platform_floor_layers":4294967295,"platform_wall_layers":0,"safe_margin":0.001,"script":ExtResource("1_gwnyu"),"view":null,"gravity":20.0,"jump_height":4.0,"homing_attack_force":15.0,"homing_attack_radius":7.0,"acceleration":7.0,"deceleration":15.0,"max_speed":10.0,"slope_assistance":1.0,"slope_drag":1.0,"spindash_acceleration":0.0,"spindash_deceleration":0.0,"spindash_max_speed":30.0,"spindash_speed":30.0,"fully_charged_spindash_time":0.5,"spindash_slope_assistance":1.0,"spindash_slope_drag":1.0,"spindash_flat_drag":1.0,"air_acceleration":5.0,"air_deceleration":5.0,"max_air_speed":15.0,"rotation_speed":70.0,"air_rotation_speed":50.0,"align_rotation_speed":10.0,"spin_speed":30.0)
+player = Object(CharacterBody3D,"_import_path":NodePath(""),"unique_name_in_owner":false,"process_mode":0,"process_priority":0,"process_physics_priority":0,"process_thread_group":0,"editor_description":"","transform":Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0),"rotation_edit_mode":0,"rotation_order":2,"top_level":false,"visible":true,"visibility_parent":NodePath(""),"disable_mode":0,"collision_layer":1,"collision_mask":1,"collision_priority":1.0,"input_ray_pickable":true,"input_capture_on_drag":false,"axis_lock_linear_x":false,"axis_lock_linear_y":false,"axis_lock_linear_z":false,"axis_lock_angular_x":false,"axis_lock_angular_y":false,"axis_lock_angular_z":false,"motion_mode":0,"up_direction":Vector3(0, 1, 0),"slide_on_ceiling":true,"velocity":Vector3(0, 0, 0),"max_slides":6,"wall_min_slide_angle":0.261799,"floor_stop_on_slope":false,"floor_constant_speed":false,"floor_block_on_wall":true,"floor_max_angle":1.39626,"floor_snap_length":0.1,"platform_on_leave":0,"platform_floor_layers":4294967295,"platform_wall_layers":0,"safe_margin":0.001,"script":ExtResource("1_gwnyu"),"view":null,"gravity":null,"jump_height":null,"homing_attack_force":null,"homing_attack_radius":null,"acceleration":null,"deceleration":null,"max_speed":null,"slope_assistance":null,"slope_drag":null,"spindash_acceleration":null,"spindash_deceleration":null,"spindash_max_speed":null,"spindash_speed":null,"fully_charged_spindash_time":null,"spindash_slope_assistance":null,"spindash_slope_drag":null,"spindash_flat_drag":null,"air_acceleration":null,"air_deceleration":null,"max_air_speed":null,"rotation_speed":null,"air_rotation_speed":null,"align_rotation_speed":null,"spin_speed":null)
 
 
 [node name="RayCast3D2" type="RayCast3D" parent="RaycastGroup"]
