@@ -33,8 +33,6 @@ environment = SubResource("Environment_56vci")
 
 [node name="Player" parent="." node_paths=PackedStringArray("view") instance=ExtResource("1_cugl0")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.091898, 2.44734, 0.0273056)
-floor_constant_speed = true
-floor_block_on_wall = false
 floor_max_angle = 1.22173
 view = NodePath("../View")
 
@@ -83,7 +81,7 @@ polygon = PackedVector2Array(0, 0, 1.2, 1.5, 1.8, 1.5, 3, 0)
 depth = 2.0
 
 [node name="60" type="CSGPolygon3D" parent="CSGCombiner3D"]
-transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, -13.5, 0.5, -5.1)
+transform = Transform3D(5, 0, 0, 0, 5, 0, 0, 0, 5, -13.5, 0.5, -5.1)
 polygon = PackedVector2Array(0, 0, 1.2, 2, 1.8, 2, 3, 0)
 depth = 2.0
 

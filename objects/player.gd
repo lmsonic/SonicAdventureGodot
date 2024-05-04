@@ -47,7 +47,6 @@ var spindash_timer := 0.0
 var has_homing_attack := true
 var homing_attack_target: Targettable = null
 var rotation_y := 0.0
-var last_normal := Vector3.UP
 
 @onready var state_chart: StateChart = $StateChart
 
@@ -68,17 +67,15 @@ func handle_acceleration(acceleration: float, deceleration: float, max_speed: fl
 
 	var dot := input.dot(forward)
 	if input != Vector3.ZERO:
-		speed += (acceleration + deceleration) * delta * dot
+		speed += (acceleration) * delta * dot
 	elif speed > 0.0:
 		speed -= deceleration * delta
 	speed = clampf(speed, 0.0, max_speed)
-	var proj := velocity.project(basis.y)
-	velocity = forward * speed + proj
-	DebugDraw3D.draw_arrow(global_position + global_basis.y * 0.5, global_position + global_basis.y * 0.5 + forward * speed, Color.BLUE, 0.1)
-	DebugDraw3D.draw_arrow(global_position + global_basis.y * 0.5, global_position + global_basis.y * 0.5 + proj, Color.RED, 0.1)
+	var local_y_momentum := velocity.project(global_basis.y)
+	velocity = forward * speed + local_y_momentum
+	DebugDraw3D.draw_arrow(global_position + global_basis.y * 0.5, global_position + global_basis.y * 0.5 + velocity, Color.BLUE, 0.1)
+	DebugDraw3D.draw_arrow(global_position + global_basis.y * 0.5, global_position + global_basis.y * 0.5 + local_y_momentum, Color.RED, 0.1)
 	DebugDraw3D.draw_arrow(global_position + global_basis.y * 0.5, global_position + global_basis.y * 0.5 + forward, Color.GREEN, 0.1)
-
-	print("velocity: %s proj: %s on_floor: %s " % [velocity, proj, is_on_floor()])
 
 func is_on_flat_ground() -> bool:
 	var angle := get_floor_angle()
@@ -137,9 +134,13 @@ func _on_grounded_state_entered() -> void:
 
 func _on_jump_state_entered() -> void:
 	var normal := raycast_group.get_floor_normal()
-	velocity += normal * jump_velocity()
-	raycast_group.disable_ground_check()
+	var jump_velocity := jump_velocity() + velocity.y * speed
+	velocity += normal * jump_velocity
+	floor_snap_length = 0.0
 	Audio.play("res://sounds/jump.ogg")
+	var timer := get_tree().create_timer(0.2)
+	await timer.timeout
+	floor_snap_length = 0.5
 
 func _on_running_state_physics_processing(delta: float) -> void:
 	handle_slopes(delta, slope_assistance, slope_drag)
@@ -147,10 +148,25 @@ func _on_running_state_physics_processing(delta: float) -> void:
 	velocity.y = 0.0
 	move_and_slide()
 	handle_rotation(delta, air_rotation_speed)
+
 	if not is_on_floor():
 		state_chart.send_event("airborne")
 	if Input.is_action_just_pressed("spindash"):
 		state_chart.send_event("charge_spindash")
+
+func _on_spindash_state_physics_processing(delta: float) -> void:
+	handle_slopes(delta, spindash_slope_assistance, spindash_slope_drag, spindash_flat_drag)
+	handle_acceleration(spindash_acceleration, spindash_deceleration, spindash_max_speed, delta)
+	velocity.y = 0.0
+	move_and_slide()
+	handle_rotation(delta, rotation_speed)
+
+	if not is_on_floor():
+		state_chart.send_event("airborne")
+	if speed < 2.0:
+		state_chart.send_event("running")
+	if Input.is_action_just_pressed("spindash"):
+		state_chart.send_event("running")
 
 func _on_airball_state_physics_processing(delta: float) -> void:
 	handle_gravity(delta)
@@ -215,23 +231,9 @@ func _on_spindash_charge_state_entered() -> void:
 func _on_spindash_charge_state_exited() -> void:
 	var remapped_timer := remap(spindash_timer, 0.0, fully_charged_spindash_time, 0.3, 1.0)
 	speed += spindash_speed * remapped_timer
-	print("spindash release")
 
 func _on_spindash_state_processing(delta: float) -> void:
 	model.rotate_x(2.0 * speed * delta)
-
-func _on_spindash_state_physics_processing(delta: float) -> void:
-	handle_slopes(delta, spindash_slope_assistance, spindash_slope_drag, spindash_flat_drag)
-	handle_acceleration(spindash_acceleration, spindash_deceleration, spindash_max_speed, delta)
-	velocity.y = 0.0
-	move_and_slide()
-	handle_rotation(delta, rotation_speed)
-	if not is_on_floor():
-		state_chart.send_event("airborne")
-	if speed < 2.0:
-		state_chart.send_event("running")
-	if Input.is_action_just_pressed("spindash"):
-		state_chart.send_event("running")
 
 func get_closest_targettable() -> Targettable:
 	var targettables := get_tree().get_nodes_in_group("targettable")
@@ -273,7 +275,6 @@ func _on_homing_attack_state_physics_processing(_delta: float) -> void:
 	var direction := global_position.direction_to(homing_attack_target.global_position)
 	velocity = direction * homing_attack_force
 	move_and_slide()
-
 
 func _on_spindash_state_entered() -> void:
 	floor_snap_length = 0.3

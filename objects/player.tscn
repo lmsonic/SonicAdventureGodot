@@ -80,17 +80,17 @@ guard = SubResource("Resource_lenpd")
 [node name="Player" type="CharacterBody3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 slide_on_ceiling = false
-floor_stop_on_slope = false
 floor_constant_speed = true
 floor_block_on_wall = false
 floor_snap_length = 0.5
 script = ExtResource("1_gwnyu")
-slope_assistance = 1.0
+acceleration = 22.0
+slope_assistance = 0.1
 slope_drag = 5.0
-spindash_speed = 20.0
-spindash_slope_assistance = 3.0
+spindash_slope_assistance = 0.1
 spindash_slope_drag = 3.0
 spindash_flat_drag = 0.3
+air_acceleration = 10.0
 
 [node name="Collider" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
