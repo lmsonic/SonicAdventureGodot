@@ -15,6 +15,7 @@
 [ext_resource type="Script" path="res://objects/raycast_group.gd" id="13_3j8vb"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_gdq8c"]
+radius = 0.3
 height = 1.0
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_q7stj"]
@@ -87,10 +88,8 @@ floor_snap_length = 0.5
 script = ExtResource("1_gwnyu")
 slope_assistance = 1.0
 slope_drag = 5.0
-spindash_speed = 20.0
-spindash_slope_assistance = 3.0
-spindash_slope_drag = 3.0
-spindash_flat_drag = 0.3
+spindash_slope_assistance = 1.0
+spindash_slope_drag = 5.0
 
 [node name="Collider" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
@@ -234,28 +233,28 @@ offset_bottom = -430.0
 initial_node_to_watch = NodePath("../StateChart")
 
 [node name="RaycastGroup" type="Node3D" parent="." node_paths=PackedStringArray("player")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
 script = ExtResource("13_3j8vb")
 player = NodePath("..")
 
 [node name="RayCast3D2" type="RayCast3D" parent="RaycastGroup"]
-target_position = Vector3(0, -0.6, 0)
+target_position = Vector3(0, -0.5, 0)
 
 [node name="RayCast3D3" type="RayCast3D" parent="RaycastGroup"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.2, 0, 0)
-target_position = Vector3(0.2, -0.6, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.3, 0, 0)
+target_position = Vector3(0, -0.5, 0)
 
 [node name="RayCast3D4" type="RayCast3D" parent="RaycastGroup"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.2)
-target_position = Vector3(0, -0.6, 0.2)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.3)
+target_position = Vector3(0, -0.5, 0)
 
 [node name="RayCast3D5" type="RayCast3D" parent="RaycastGroup"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.2, 0, 0)
-target_position = Vector3(-0.2, -0.6, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.3, 0, 0)
+target_position = Vector3(0, -0.5, 0)
 
 [node name="RayCast3D6" type="RayCast3D" parent="RaycastGroup"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.2)
-target_position = Vector3(0, -0.6, -0.2)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.3)
+target_position = Vector3(0, -0.5, 0)
 
 [connection signal="state_entered" from="StateChart/Root/Grounded" to="." method="_on_grounded_state_entered"]
 [connection signal="state_input" from="StateChart/Root/Grounded" to="." method="_on_grounded_state_input"]
@@ -268,7 +267,6 @@ target_position = Vector3(0, -0.6, -0.2)
 [connection signal="state_exited" from="StateChart/Root/Grounded/SpindashCharge" to="." method="_on_spindash_charge_state_exited"]
 [connection signal="state_input" from="StateChart/Root/Grounded/SpindashCharge" to="." method="_on_spindash_charge_state_input"]
 [connection signal="state_processing" from="StateChart/Root/Grounded/SpindashCharge" to="." method="_on_spindash_charge_state_processing"]
-[connection signal="state_entered" from="StateChart/Root/Grounded/Spindash" to="." method="_on_spindash_state_entered"]
 [connection signal="state_input" from="StateChart/Root/Grounded/Spindash" to="." method="_on_spindash_state_input"]
 [connection signal="state_physics_processing" from="StateChart/Root/Grounded/Spindash" to="." method="_on_spindash_state_physics_processing"]
 [connection signal="state_processing" from="StateChart/Root/Grounded/Spindash" to="." method="_on_spindash_state_processing"]
