@@ -42,12 +42,10 @@ class_name Player extends CharacterBody3D
 @export var align_rotation_speed := 10.0
 @export var spin_speed := 30.0
 
-var speed := 0.0
 var spindash_timer := 0.0
 var has_homing_attack := true
 var homing_attack_target: Targettable = null
 var rotation_y := 0.0
-var local_y_momentum := Vector3.ZERO
 
 @onready var state_chart: StateChart = $StateChart
 
@@ -66,16 +64,16 @@ func handle_acceleration(acceleration: float, deceleration: float, max_speed: fl
 	var forward := get_forward()
 	var input := camera_relative_input()
 	var dot := input.dot(forward)
+	var local_y_speed := velocity.dot(global_basis.y)
+	velocity -= global_basis.y * local_y_speed
+	var speed := velocity.length()
 	if input != Vector3.ZERO:
 		speed += acceleration * delta * dot
-	elif speed > 0.0:
+	elif speed > 0.5:
 		speed -= deceleration * delta
+
 	speed = clampf(speed, 0.0, max_speed)
-	velocity = forward * speed + local_y_momentum
-	print(speed)
-	DebugDraw3D.draw_arrow(global_position + global_basis.y * 0.5, global_position + global_basis.y * 0.5 + velocity * 0.5, Color.BLUE, 0.11)
-	DebugDraw3D.draw_arrow(global_position + global_basis.y * 0.5, global_position + global_basis.y * 0.5 + local_y_momentum, Color.RED, 0.1)
-	DebugDraw3D.draw_arrow(global_position + global_basis.y * 0.5, global_position + global_basis.y * 0.5 + forward, Color.GREEN, 0.1)
+	velocity = forward * speed + global_basis.y * local_y_speed
 
 func is_on_flat_ground() -> bool:
 	var angle := get_floor_angle()
@@ -99,28 +97,30 @@ func handle_slopes(delta: float, slope_assistance: float, slope_drag: float, fla
 	if not is_on_floor():
 		return
 	var angle := get_floor_angle()
+	var forward := get_forward()
+	var speed := velocity.length()
 	if is_on_flat_ground():
-		speed -= flat_drag * delta * speed
+		velocity -= forward * flat_drag * delta * speed
 	elif is_uphill():
-		speed -= slope_drag * delta * speed * angle
+		velocity -= forward * slope_drag * delta * speed * angle
 	elif is_downhill():
-		speed += slope_assistance * delta * speed * angle
+		velocity += forward * slope_assistance * delta * speed * angle
 
 func handle_gravity(delta: float) -> void:
-	local_y_momentum += Vector3.DOWN * gravity * delta
+	velocity.y -= gravity * delta
 
 func handle_variable_jump() -> void:
-	if local_y_momentum.y > 0.0 and Input.is_action_just_released("jump"):
-		local_y_momentum.y *= 0.5
+	if velocity.y > 0.0 and Input.is_action_just_released("jump"):
+		velocity.y *= 0.5
 
 func handle_rotation(delta: float, rotation_speed: float) -> void:
 	var input := camera_relative_input()
 	if input.length_squared() > 0.0:
 		var target_angle := Vector2(input.z, input.x).angle()
+		var speed := velocity.length()
 		rotation_speed = rotation_speed / (speed if speed * speed >= 1.0 else 1.0)
 		rotation_y = lerp_angle(rotation_y, target_angle, delta * rotation_speed)
 	var normal := raycast_group.get_floor_normal()
-	DebugDraw3D.draw_arrow(global_position, global_position + normal)
 	if not is_on_floor()||normal == Vector3.ZERO:
 		var target_rotation := Quaternion(Vector3.UP, rotation_y).normalized()
 		quaternion = quaternion.slerp(target_rotation, delta * align_rotation_speed).normalized()
@@ -131,12 +131,11 @@ func handle_rotation(delta: float, rotation_speed: float) -> void:
 
 func _on_grounded_state_entered() -> void:
 	has_homing_attack = true
-	local_y_momentum = Vector3.DOWN * 0.1
 
 func _on_jump_state_entered() -> void:
 	var normal := raycast_group.get_floor_normal()
-	var jump_velocity := jump_velocity() + local_y_momentum.y * speed
-	local_y_momentum = normal * jump_velocity
+	var jump_velocity := jump_velocity() + velocity.y * velocity.length()
+	velocity += normal * jump_velocity
 	floor_snap_length = 0.0
 	Audio.play("res://sounds/jump.ogg")
 	var timer := get_tree().create_timer(0.2)
@@ -146,6 +145,7 @@ func _on_jump_state_entered() -> void:
 func _on_running_state_physics_processing(delta: float) -> void:
 	handle_slopes(delta, slope_assistance, slope_drag)
 	handle_acceleration(acceleration, deceleration, max_speed, delta)
+	velocity.y = -0.1
 	move_and_slide()
 	handle_rotation(delta, air_rotation_speed)
 
@@ -157,13 +157,13 @@ func _on_running_state_physics_processing(delta: float) -> void:
 func _on_spindash_state_physics_processing(delta: float) -> void:
 	handle_slopes(delta, spindash_slope_assistance, spindash_slope_drag, spindash_flat_drag)
 	handle_acceleration(spindash_acceleration, spindash_deceleration, spindash_max_speed, delta)
-
+	velocity.y = -0.1
 	move_and_slide()
 	handle_rotation(delta, rotation_speed)
 
 	if not is_on_floor():
 		state_chart.send_event("airborne")
-	if speed < 2.0:
+	if velocity.length() < 2.0:
 		state_chart.send_event("running")
 	if Input.is_action_just_pressed("spindash"):
 		state_chart.send_event("running")
@@ -200,7 +200,8 @@ func _on_airball_state_entered() -> void:
 func _on_running_state_processing(_delta: float) -> void:
 	var input := camera_relative_input()
 	if input != Vector3.ZERO and input.dot(get_forward()) < - 0.5:
-			speed *= 0.5
+			velocity.x *= 0.5
+			velocity.z *= 0.5
 	if velocity.length_squared() > 1.0:
 		animation.play("walk", 0.5)
 		particles_trail.emitting = true
@@ -216,7 +217,7 @@ func _on_airball_state_processing(delta: float) -> void:
 func _on_spindash_charge_state_processing(delta: float) -> void:
 	handle_rotation(delta, rotation_speed)
 	model.rotate_x(spin_speed * delta)
-	speed = lerp(speed, 0.0, delta * deceleration)
+	velocity = velocity.lerp(Vector3.ZERO, delta * deceleration)
 	spindash_timer += delta
 	spindash_timer = clampf(spindash_timer, 0.0, fully_charged_spindash_time)
 	if Input.is_action_just_released("spindash"):
@@ -230,10 +231,10 @@ func _on_spindash_charge_state_entered() -> void:
 
 func _on_spindash_charge_state_exited() -> void:
 	var remapped_timer := remap(spindash_timer, 0.0, fully_charged_spindash_time, 0.3, 1.0)
-	speed += spindash_speed * remapped_timer
+	velocity += get_forward() * spindash_speed * remapped_timer
 
 func _on_spindash_state_processing(delta: float) -> void:
-	model.rotate_x(2.0 * speed * delta)
+	model.rotate_x(2.0 * velocity.length() * delta)
 
 func get_closest_targettable() -> Targettable:
 	var targettables := get_tree().get_nodes_in_group("targettable")
@@ -251,7 +252,7 @@ func _on_homing_attack_state_entered() -> void:
 	if closest:
 		homing_attack_target = closest
 	else:
-		speed += homing_attack_force
+		velocity += get_forward() * homing_attack_force
 		state_chart.send_event("airball")
 
 func _on_grounded_state_physics_processing(_delta: float) -> void:

@@ -84,7 +84,6 @@ floor_constant_speed = true
 floor_block_on_wall = false
 floor_snap_length = 0.5
 script = ExtResource("1_gwnyu")
-acceleration = 10.0
 slope_assistance = 1.0
 slope_drag = 1.0
 spindash_slope_assistance = 1.0
