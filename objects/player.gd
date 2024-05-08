@@ -47,6 +47,7 @@ var spindash_timer := 0.0
 var has_homing_attack := true
 var homing_attack_target: Targettable = null
 var rotation_y := 0.0
+var local_y_momentum := Vector3.ZERO
 
 @onready var state_chart: StateChart = $StateChart
 
@@ -64,16 +65,15 @@ func jump_velocity() -> float:
 func handle_acceleration(acceleration: float, deceleration: float, max_speed: float, delta: float) -> void:
 	var forward := get_forward()
 	var input := camera_relative_input()
-
 	var dot := input.dot(forward)
 	if input != Vector3.ZERO:
-		speed += (acceleration) * delta * dot
+		speed += acceleration * delta * dot
 	elif speed > 0.0:
 		speed -= deceleration * delta
 	speed = clampf(speed, 0.0, max_speed)
-	var local_y_momentum := velocity.project(global_basis.y)
 	velocity = forward * speed + local_y_momentum
-	DebugDraw3D.draw_arrow(global_position + global_basis.y * 0.5, global_position + global_basis.y * 0.5 + velocity, Color.BLUE, 0.1)
+	print(speed)
+	DebugDraw3D.draw_arrow(global_position + global_basis.y * 0.5, global_position + global_basis.y * 0.5 + velocity * 0.5, Color.BLUE, 0.11)
 	DebugDraw3D.draw_arrow(global_position + global_basis.y * 0.5, global_position + global_basis.y * 0.5 + local_y_momentum, Color.RED, 0.1)
 	DebugDraw3D.draw_arrow(global_position + global_basis.y * 0.5, global_position + global_basis.y * 0.5 + forward, Color.GREEN, 0.1)
 
@@ -96,7 +96,7 @@ func is_uphill() -> bool:
 	return normal.dot(forward) < 0.0
 
 func handle_slopes(delta: float, slope_assistance: float, slope_drag: float, flat_drag:=0.0) -> void:
-	if not raycast_group.is_on_floor():
+	if not is_on_floor():
 		return
 	var angle := get_floor_angle()
 	if is_on_flat_ground():
@@ -107,11 +107,11 @@ func handle_slopes(delta: float, slope_assistance: float, slope_drag: float, fla
 		speed += slope_assistance * delta * speed * angle
 
 func handle_gravity(delta: float) -> void:
-	velocity.y -= gravity * delta
+	local_y_momentum += Vector3.DOWN * gravity * delta
 
 func handle_variable_jump() -> void:
-	if velocity.y > 0.0 and Input.is_action_just_released("jump"):
-		velocity.y *= 0.5
+	if local_y_momentum.y > 0.0 and Input.is_action_just_released("jump"):
+		local_y_momentum.y *= 0.5
 
 func handle_rotation(delta: float, rotation_speed: float) -> void:
 	var input := camera_relative_input()
@@ -121,7 +121,7 @@ func handle_rotation(delta: float, rotation_speed: float) -> void:
 		rotation_y = lerp_angle(rotation_y, target_angle, delta * rotation_speed)
 	var normal := raycast_group.get_floor_normal()
 	DebugDraw3D.draw_arrow(global_position, global_position + normal)
-	if not raycast_group.is_on_floor()||normal == Vector3.ZERO:
+	if not is_on_floor()||normal == Vector3.ZERO:
 		var target_rotation := Quaternion(Vector3.UP, rotation_y).normalized()
 		quaternion = quaternion.slerp(target_rotation, delta * align_rotation_speed).normalized()
 	else:
@@ -131,11 +131,12 @@ func handle_rotation(delta: float, rotation_speed: float) -> void:
 
 func _on_grounded_state_entered() -> void:
 	has_homing_attack = true
+	local_y_momentum = Vector3.DOWN * 0.1
 
 func _on_jump_state_entered() -> void:
 	var normal := raycast_group.get_floor_normal()
-	var jump_velocity := jump_velocity() + velocity.y * speed
-	velocity += normal * jump_velocity
+	var jump_velocity := jump_velocity() + local_y_momentum.y * speed
+	local_y_momentum = normal * jump_velocity
 	floor_snap_length = 0.0
 	Audio.play("res://sounds/jump.ogg")
 	var timer := get_tree().create_timer(0.2)
@@ -145,7 +146,6 @@ func _on_jump_state_entered() -> void:
 func _on_running_state_physics_processing(delta: float) -> void:
 	handle_slopes(delta, slope_assistance, slope_drag)
 	handle_acceleration(acceleration, deceleration, max_speed, delta)
-	velocity.y = 0.0
 	move_and_slide()
 	handle_rotation(delta, air_rotation_speed)
 
@@ -157,7 +157,7 @@ func _on_running_state_physics_processing(delta: float) -> void:
 func _on_spindash_state_physics_processing(delta: float) -> void:
 	handle_slopes(delta, spindash_slope_assistance, spindash_slope_drag, spindash_flat_drag)
 	handle_acceleration(spindash_acceleration, spindash_deceleration, spindash_max_speed, delta)
-	velocity.y = 0.0
+
 	move_and_slide()
 	handle_rotation(delta, rotation_speed)
 

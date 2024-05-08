@@ -14,8 +14,7 @@
 [ext_resource type="PackedScene" uid="uid://bcwkugn6v3oy7" path="res://addons/godot_state_charts/utilities/state_chart_debugger.tscn" id="12_jno0k"]
 [ext_resource type="Script" path="res://objects/raycast_group.gd" id="13_3j8vb"]
 
-[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_gdq8c"]
-height = 1.0
+[sub_resource type="SphereShape3D" id="SphereShape3D_nxpyi"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_q7stj"]
 diffuse_mode = 2
@@ -80,21 +79,22 @@ guard = SubResource("Resource_lenpd")
 [node name="Player" type="CharacterBody3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 slide_on_ceiling = false
+floor_stop_on_slope = false
 floor_constant_speed = true
 floor_block_on_wall = false
 floor_snap_length = 0.5
 script = ExtResource("1_gwnyu")
-acceleration = 22.0
-slope_assistance = 0.1
-slope_drag = 5.0
-spindash_slope_assistance = 0.1
-spindash_slope_drag = 3.0
+acceleration = 10.0
+slope_assistance = 1.0
+slope_drag = 1.0
+spindash_slope_assistance = 1.0
+spindash_slope_drag = 1.0
 spindash_flat_drag = 0.3
 air_acceleration = 10.0
 
 [node name="Collider" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
-shape = SubResource("CapsuleShape3D_gdq8c")
+shape = SubResource("SphereShape3D_nxpyi")
 
 [node name="Shadow" type="Decal" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.9, 0)
