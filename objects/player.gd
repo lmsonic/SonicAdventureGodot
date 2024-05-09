@@ -238,6 +238,8 @@ func _on_spindash_state_processing(delta: float) -> void:
 
 func get_closest_targettable() -> Targettable:
 	var targettables := get_tree().get_nodes_in_group("targettable")
+	if targettables.is_empty():
+		return null
 	targettables = targettables.filter(func(x: Targettable) -> bool:
 		var delta:=global_position.direction_to(x.global_position)
 		return delta.dot(get_forward()) > 0.0 and delta.y < 0.5)

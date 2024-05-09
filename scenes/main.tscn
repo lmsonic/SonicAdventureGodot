@@ -25,8 +25,9 @@ shadow_offset = Vector2(2, 2)
 [node name="Environment" type="WorldEnvironment" parent="."]
 environment = ExtResource("1_ahusb")
 
-[node name="Player" parent="." instance=ExtResource("2_onms2")]
+[node name="Player" parent="." node_paths=PackedStringArray("view") instance=ExtResource("2_onms2")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.00623369, -1.92723, -0.322296)
+view = NodePath("../View")
 
 [node name="World" type="Node3D" parent="."]
 
@@ -154,6 +155,3 @@ label_settings = SubResource("LabelSettings_38ys3")
 
 [node name="View" parent="." node_paths=PackedStringArray("target") instance=ExtResource("13_a1n7h")]
 target = NodePath("../Player")
-
-[node name="CSGSphere3D" type="CSGSphere3D" parent="." groups=["targettable"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8.81854, -1.64489, -7.97408)
