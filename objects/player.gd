@@ -44,8 +44,9 @@ class_name Player extends CharacterBody3D
 
 var spindash_timer := 0.0
 var has_homing_attack := true
-var homing_attack_target: Targettable = null
+var homing_attack_target: Node3D = null
 var rotation_y := 0.0
+var disable_input := false
 
 @onready var state_chart: StateChart = $StateChart
 
@@ -57,7 +58,7 @@ func camera_relative_input() -> Vector3:
 	var input_3d := Vector3(input_2d.x, 0.0, input_2d.y)
 	return input_3d.rotated(Vector3.UP, view.rotation.y)
 
-func jump_velocity() -> float:
+func get_jump_velocity() -> float:
 	return sqrt(2.0 * gravity * jump_height)
 
 func handle_acceleration(acceleration: float, deceleration: float, max_speed: float, delta: float) -> void:
@@ -67,10 +68,12 @@ func handle_acceleration(acceleration: float, deceleration: float, max_speed: fl
 	var local_y_speed := velocity.dot(global_basis.y)
 	velocity -= global_basis.y * local_y_speed
 	var speed := velocity.length()
-	if input != Vector3.ZERO:
+	if not disable_input and input != Vector3.ZERO:
 		speed += acceleration * delta * dot
 	elif speed > 0.5:
 		speed -= deceleration * delta
+	else:
+		speed = 0.0
 
 	speed = clampf(speed, 0.0, max_speed)
 	velocity = forward * speed + global_basis.y * local_y_speed
@@ -99,6 +102,7 @@ func handle_slopes(delta: float, slope_assistance: float, slope_drag: float, fla
 	var angle := get_floor_angle()
 	var forward := get_forward()
 	var speed := velocity.length()
+	# TODO: account for rotation along the normal
 	if is_on_flat_ground():
 		velocity -= forward * flat_drag * delta * speed
 	elif is_uphill():
@@ -115,18 +119,19 @@ func handle_variable_jump() -> void:
 
 func handle_rotation(delta: float, rotation_speed: float) -> void:
 	var input := camera_relative_input()
-	if input.length_squared() > 0.0:
+	if not disable_input and input.length_squared() > 0.0:
 		var target_angle := Vector2(input.z, input.x).angle()
 		var speed := velocity.length()
 		rotation_speed = rotation_speed / (speed if speed * speed >= 1.0 else 1.0)
 		rotation_y = lerp_angle(rotation_y, target_angle, delta * rotation_speed)
+
 	var normal := raycast_group.get_floor_normal()
 	if not is_on_floor()||normal == Vector3.ZERO:
 		var target_rotation := Quaternion(Vector3.UP, rotation_y).normalized()
 		quaternion = quaternion.slerp(target_rotation, delta * align_rotation_speed).normalized()
 	else:
 		var right := normal.cross(Vector3.BACK)
-		var target_rotation := Basis(right, normal, Vector3.BACK).orthonormalized().rotated(normal, rotation_y)
+		var target_rotation := Basis(right, normal, Vector3.BACK).rotated(normal, rotation_y).orthonormalized()
 		global_basis = global_basis.slerp(target_rotation, align_rotation_speed * delta).orthonormalized()
 
 func _on_grounded_state_entered() -> void:
@@ -134,7 +139,7 @@ func _on_grounded_state_entered() -> void:
 
 func _on_jump_state_entered() -> void:
 	var normal := raycast_group.get_floor_normal()
-	var jump_velocity := jump_velocity() + velocity.y * velocity.length()
+	var jump_velocity := get_jump_velocity() + velocity.y * velocity.length()
 	velocity += normal * jump_velocity
 	floor_snap_length = 0.0
 	Audio.play("res://sounds/jump.ogg")
@@ -143,9 +148,9 @@ func _on_jump_state_entered() -> void:
 	floor_snap_length = 0.5
 
 func _on_running_state_physics_processing(delta: float) -> void:
+	handle_gravity(delta)
 	handle_slopes(delta, slope_assistance, slope_drag)
 	handle_acceleration(acceleration, deceleration, max_speed, delta)
-	velocity.y = -0.1
 	move_and_slide()
 	handle_rotation(delta, air_rotation_speed)
 
@@ -155,9 +160,9 @@ func _on_running_state_physics_processing(delta: float) -> void:
 		state_chart.send_event("charge_spindash")
 
 func _on_spindash_state_physics_processing(delta: float) -> void:
+	handle_gravity(delta)
 	handle_slopes(delta, spindash_slope_assistance, spindash_slope_drag, spindash_flat_drag)
 	handle_acceleration(spindash_acceleration, spindash_deceleration, spindash_max_speed, delta)
-	velocity.y = -0.1
 	move_and_slide()
 	handle_rotation(delta, rotation_speed)
 
@@ -199,9 +204,9 @@ func _on_airball_state_entered() -> void:
 
 func _on_running_state_processing(_delta: float) -> void:
 	var input := camera_relative_input()
-	if input != Vector3.ZERO and input.dot(get_forward()) < - 0.5:
-			velocity.x *= 0.5
-			velocity.z *= 0.5
+	if not disable_input and input != Vector3.ZERO and input.dot(get_forward()) < - 0.5:
+		velocity.x *= 0.5
+		velocity.z *= 0.5
 	if velocity.length_squared() > 1.0:
 		animation.play("walk", 0.5)
 		particles_trail.emitting = true
@@ -245,9 +250,9 @@ func get_closest_targettable() -> Targettable:
 		return delta.dot(get_forward()) > 0.0 and delta.y < 0.5)
 	targettables = targettables.filter(func(x: Targettable) -> bool:
 		return x.global_position.distance_squared_to(global_position) < homing_attack_radius * homing_attack_radius)
-	return targettables.reduce(func(min: Targettable, x: Targettable) -> Targettable: return x \
-		if x.global_position.distance_squared_to(global_position) < min.global_position.distance_squared_to(global_position) \
-		else min)
+	return targettables.reduce(func(closest: Targettable, x: Targettable) -> Targettable: return x \
+		if x.global_position.distance_squared_to(global_position) < closest.global_position.distance_squared_to(global_position) \
+		else closest)
 
 func _on_homing_attack_state_entered() -> void:
 	var closest := get_closest_targettable()
@@ -268,16 +273,14 @@ func _on_homing_attack_state_physics_processing(_delta: float) -> void:
 	if not homing_attack_target:
 		state_chart.send_event("airball")
 		return
-
-	if global_position.distance_squared_to(homing_attack_target.global_position) < 0.5:
-		homing_attack_target.reached(self)
-		state_chart.send_event("airball")
-		has_homing_attack = true
-		homing_attack_target = null
-		return
 	var direction := global_position.direction_to(homing_attack_target.global_position)
 	velocity = direction * homing_attack_force
 	move_and_slide()
 
 func _on_spindash_state_entered() -> void:
 	floor_snap_length = 0.3
+
+func entered_targettable() -> void:
+	state_chart.send_event("airball")
+	has_homing_attack = true
+	homing_attack_target = null

@@ -4,7 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://36mcsb6wrsdr" path="res://scenes/view.tscn" id="2_nqevt"]
 [ext_resource type="Material" uid="uid://bx6qeabdhq2s" path="res://addons/kenney_prototype_tools/materials/dark/material_01.tres" id="3_xwusv"]
 [ext_resource type="Script" path="res://objects/respawn_plane.gd" id="4_33irv"]
-[ext_resource type="Script" path="res://objects/targettable.gd" id="4_ud32e"]
+[ext_resource type="PackedScene" uid="uid://cla7rxl6g42sw" path="res://objects/spring.tscn" id="5_ldnjt"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_kdlij"]
 sky_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
@@ -85,23 +85,17 @@ transform = Transform3D(5, 0, 0, 0, 5, 0, 0, 0, 5, -13.5, 0.5, -5.1)
 polygon = PackedVector2Array(0, 0, 1.2, 2, 1.8, 2, 3, 0)
 depth = 2.0
 
-[node name="CSGSphere3D" type="CSGSphere3D" parent="." groups=["targettable"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.6698, 5.20848, -10.4325)
-script = ExtResource("4_ud32e")
-
-[node name="CSGSphere3D2" type="CSGSphere3D" parent="." groups=["targettable"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.6698, 3.42612, -6.53135)
-script = ExtResource("4_ud32e")
-
-[node name="CSGSphere3D3" type="CSGSphere3D" parent="." groups=["targettable"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.6698, 1.45756, -3.1368)
-script = ExtResource("4_ud32e")
-
 [node name="RespawnPlane" type="Area3D" parent="."]
 script = ExtResource("4_33irv")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="RespawnPlane"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -9, 0)
 shape = SubResource("BoxShape3D_pfjdm")
+
+[node name="Spring" parent="." instance=ExtResource("5_ldnjt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.09115, 0.5, 0)
+
+[node name="Spring2" parent="." instance=ExtResource("5_ldnjt")]
+transform = Transform3D(0.5, 0.866025, 0, -0.866025, 0.5, 0, 0, 0, 1, -4.08221, 10.0596, -6.54615)
 
 [connection signal="body_entered" from="RespawnPlane" to="RespawnPlane" method="_on_body_entered"]

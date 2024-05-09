@@ -36,7 +36,7 @@ func _physics_process(delta: float) -> void:
 
 # Handle input
 
-func handle_input(delta:float) -> void:
+func handle_input(delta: float) -> void:
 
 	# Rotation
 
