@@ -66,18 +66,28 @@ func handle_acceleration(acceleration: float, deceleration: float, max_speed: fl
 	var forward := get_forward()
 	var input := camera_relative_input()
 	var dot := input.dot(forward)
-	var local_y_speed := velocity.dot(global_basis.y)
-	velocity -= global_basis.y * local_y_speed
-	var speed := velocity.length()
+	var planar_velocity := velocity - velocity.project(global_basis.y)
+	var normal_velocity := velocity.project(global_basis.y)
+
+	var speed := planar_velocity.length()
 	if not disable_input and input != Vector3.ZERO:
 		speed += acceleration * delta * dot
 	elif speed > 0.5:
 		speed -= deceleration * delta
 	else:
 		speed = 0.0
-
 	speed = clampf(speed, 0.0, max_speed)
-	velocity = forward * speed + global_basis.y * local_y_speed
+	planar_velocity = forward * speed
+	velocity = planar_velocity + normal_velocity
+	handle_gravity(delta)
+	move_and_slide()
+
+	var center := global_position + global_basis.y * 0.5
+
+	DebugDraw3D.draw_arrow(center, center + velocity, Color.BLUE, 0.1)
+	DebugDraw3D.draw_arrow(center, center + normal_velocity, Color.RED, 0.1)
+	DebugDraw3D.draw_arrow(center, center + planar_velocity, Color.GREEN, 0.1)
+	DebugDraw3D.draw_arrow(center, center + get_real_velocity(), Color.PURPLE, 0.1)
 
 func is_on_flat_ground() -> bool:
 	var angle := get_floor_angle()
@@ -103,7 +113,8 @@ func handle_slopes(delta: float, slope_assistance: float, slope_drag: float, fla
 	var angle := get_floor_angle()
 	var forward := get_forward()
 	var speed := velocity.length()
-	# TODO: account for rotation along the normal
+	var normal := raycast_group.get_floor_normal()
+
 	if is_on_flat_ground():
 		velocity -= forward * flat_drag * delta * speed
 	elif is_uphill():
@@ -150,10 +161,8 @@ func _on_jump_state_entered() -> void:
 	floor_snap_length = 0.5
 
 func _on_running_state_physics_processing(delta: float) -> void:
-	handle_gravity(delta)
 	handle_slopes(delta, slope_assistance, slope_drag)
 	handle_acceleration(acceleration, deceleration, max_speed, delta)
-	move_and_slide()
 	handle_rotation(delta, air_rotation_speed)
 
 	if not is_on_floor():
@@ -162,10 +171,8 @@ func _on_running_state_physics_processing(delta: float) -> void:
 		state_chart.send_event("charge_spindash")
 
 func _on_spindash_state_physics_processing(delta: float) -> void:
-	handle_gravity(delta)
 	handle_slopes(delta, spindash_slope_assistance, spindash_slope_drag, spindash_flat_drag)
 	handle_acceleration(spindash_acceleration, spindash_deceleration, spindash_max_speed, delta)
-	move_and_slide()
 	handle_rotation(delta, rotation_speed)
 
 	if not is_on_floor():
@@ -176,10 +183,8 @@ func _on_spindash_state_physics_processing(delta: float) -> void:
 		state_chart.send_event("running")
 
 func _on_airball_state_physics_processing(delta: float) -> void:
-	handle_gravity(delta)
-	handle_acceleration(air_acceleration, air_deceleration, max_air_speed, delta)
 	handle_variable_jump()
-	move_and_slide()
+	handle_acceleration(air_acceleration, air_deceleration, max_air_speed, delta)
 	handle_rotation(delta, air_rotation_speed)
 	if is_on_floor():
 		state_chart.send_event("grounded")
