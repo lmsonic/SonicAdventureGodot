@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://dtsgtalmq8rk7"]
+[gd_scene load_steps=13 format=3 uid="uid://dtsgtalmq8rk7"]
 
 [ext_resource type="PackedScene" uid="uid://dl2ed4gkybggf" path="res://objects/player.tscn" id="1_cugl0"]
 [ext_resource type="PackedScene" uid="uid://36mcsb6wrsdr" path="res://scenes/view.tscn" id="2_nqevt"]
@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://cla7rxl6g42sw" path="res://objects/spring.tscn" id="5_ldnjt"]
 [ext_resource type="Script" path="res://objects/badnik_spawner.gd" id="6_0lfmb"]
 [ext_resource type="PackedScene" uid="uid://dnbclthgo305d" path="res://objects/badnik.tscn" id="6_85bym"]
+[ext_resource type="PackedScene" uid="uid://cael3mhqnj0do" path="res://objects/ring.tscn" id="8_4427m"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_kdlij"]
 sky_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
@@ -106,5 +107,8 @@ script = ExtResource("6_0lfmb")
 respawn_time = 2.0
 
 [node name="Badnik" parent="BadnikSpawner" instance=ExtResource("6_85bym")]
+
+[node name="Ring" parent="." instance=ExtResource("8_4427m")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.60159, 1.83877, 0.978715)
 
 [connection signal="body_entered" from="RespawnPlane" to="RespawnPlane" method="_on_body_entered"]
