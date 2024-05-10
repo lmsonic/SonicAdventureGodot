@@ -1,0 +1,35 @@
+[gd_scene load_steps=7 format=3 uid="uid://dnbclthgo305d"]
+
+[ext_resource type="Script" path="res://objects/badnik.gd" id="1_vsjhd"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_syc85"]
+albedo_color = Color(1, 0.0470588, 0.137255, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_mpdpy"]
+material = SubResource("StandardMaterial3D_syc85")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lfn53"]
+albedo_color = Color(0, 0, 0.470588, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_1b6od"]
+material = SubResource("StandardMaterial3D_lfn53")
+radius = 0.4
+height = 0.8
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_744ml"]
+radius = 0.607617
+
+[node name="Badnik" type="Area3D"]
+script = ExtResource("1_vsjhd")
+
+[node name="Node3D" type="Node3D" parent="."]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Node3D"]
+mesh = SubResource("SphereMesh_mpdpy")
+
+[node name="MeshInstance3D2" type="MeshInstance3D" parent="Node3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.3, 0.2, 0)
+mesh = SubResource("SphereMesh_1b6od")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("SphereShape3D_744ml")

@@ -1,10 +1,12 @@
-[gd_scene load_steps=10 format=3 uid="uid://dtsgtalmq8rk7"]
+[gd_scene load_steps=12 format=3 uid="uid://dtsgtalmq8rk7"]
 
 [ext_resource type="PackedScene" uid="uid://dl2ed4gkybggf" path="res://objects/player.tscn" id="1_cugl0"]
 [ext_resource type="PackedScene" uid="uid://36mcsb6wrsdr" path="res://scenes/view.tscn" id="2_nqevt"]
 [ext_resource type="Material" uid="uid://bx6qeabdhq2s" path="res://addons/kenney_prototype_tools/materials/dark/material_01.tres" id="3_xwusv"]
 [ext_resource type="Script" path="res://objects/respawn_plane.gd" id="4_33irv"]
 [ext_resource type="PackedScene" uid="uid://cla7rxl6g42sw" path="res://objects/spring.tscn" id="5_ldnjt"]
+[ext_resource type="Script" path="res://objects/badnik_spawner.gd" id="6_0lfmb"]
+[ext_resource type="PackedScene" uid="uid://dnbclthgo305d" path="res://objects/badnik.tscn" id="6_85bym"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_kdlij"]
 sky_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
@@ -93,9 +95,16 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -9, 0)
 shape = SubResource("BoxShape3D_pfjdm")
 
 [node name="Spring" parent="." instance=ExtResource("5_ldnjt")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.09115, 0.5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.09115, 0.679939, 0)
 
 [node name="Spring2" parent="." instance=ExtResource("5_ldnjt")]
-transform = Transform3D(0.5, 0.866025, 0, -0.866025, 0.5, 0, 0, 0, 1, -4.08221, 10.0596, -6.54615)
+transform = Transform3D(0.5, 0.866025, 0, -0.866025, 0.5, 0, 0, 0, 1, -4.02962, 10.09, -6.54615)
+
+[node name="BadnikSpawner" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.90569, 1.14626, -4.40192)
+script = ExtResource("6_0lfmb")
+respawn_time = 2.0
+
+[node name="Badnik" parent="BadnikSpawner" instance=ExtResource("6_85bym")]
 
 [connection signal="body_entered" from="RespawnPlane" to="RespawnPlane" method="_on_body_entered"]

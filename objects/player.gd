@@ -47,6 +47,7 @@ var has_homing_attack := true
 var homing_attack_target: Node3D = null
 var rotation_y := 0.0
 var disable_input := false
+var hitbox_active := false
 
 @onready var state_chart: StateChart = $StateChart
 
@@ -115,7 +116,7 @@ func handle_gravity(delta: float) -> void:
 
 func handle_variable_jump() -> void:
 	if velocity.y > 0.0 and Input.is_action_just_released("jump"):
-		velocity.y *= 0.5
+		velocity.y *= 0.8
 
 func handle_rotation(delta: float, rotation_speed: float) -> void:
 	var input := camera_relative_input()
@@ -138,6 +139,7 @@ func _on_grounded_state_entered() -> void:
 	has_homing_attack = true
 
 func _on_jump_state_entered() -> void:
+	hitbox_active = true
 	var normal := raycast_group.get_floor_normal()
 	var jump_velocity := get_jump_velocity() + velocity.y * velocity.length()
 	velocity += normal * jump_velocity
@@ -193,11 +195,13 @@ func _on_airborne_event_received(event: StringName) -> void:
 
 func _on_running_state_entered() -> void:
 	trail.emitting = false
+	hitbox_active = false
 	var tween := create_tween()
 	tween.tween_property(model, "rotation", Vector3.ZERO, 0.1)
 	floor_snap_length = 0.5
 
 func _on_airball_state_entered() -> void:
+	hitbox_active = true
 	trail.emitting = true
 	particles_trail.emitting = false
 	footsteps.stream_paused = true
@@ -229,6 +233,7 @@ func _on_spindash_charge_state_processing(delta: float) -> void:
 			state_chart.send_event("spindash")
 
 func _on_spindash_charge_state_entered() -> void:
+	hitbox_active = true
 	spindash_timer = 0.0
 	trail.emitting = true
 	particles_trail.emitting = false
@@ -255,6 +260,7 @@ func get_closest_targettable() -> Targettable:
 		else closest)
 
 func _on_homing_attack_state_entered() -> void:
+	hitbox_active = true
 	var closest := get_closest_targettable()
 	if closest:
 		homing_attack_target = closest
@@ -279,6 +285,7 @@ func _on_homing_attack_state_physics_processing(_delta: float) -> void:
 
 func _on_spindash_state_entered() -> void:
 	floor_snap_length = 0.3
+	hitbox_active = true
 
 func entered_targettable() -> void:
 	state_chart.send_event("airball")
