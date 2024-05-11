@@ -401,8 +401,311 @@ impl CustomCharacterBody3D {
             first_slide = false;
         }
     }
-    fn move_and_slide_grounded(&self, delta: real, was_on_floor: bool) {
-        unimplemented!()
+    #[allow(clippy::too_many_lines)]
+    fn move_and_slide_grounded(&mut self, delta: real, was_on_floor: bool) {
+        let mut motion = self.velocity * delta;
+        let motion_slide_up = motion.slide(self.up_direction);
+        let prev_floor_normal = self.floor_normal;
+
+        self.platform_rid = Rid::Invalid;
+        self.platform_object_id = 0;
+        self.platform_velocity = Vector3::ZERO;
+        self.platform_angular_velocity = Vector3::ZERO;
+        self.platform_ceiling_velocity = Vector3::ZERO;
+        self.floor_normal = Vector3::ZERO;
+        self.wall_normal = Vector3::ZERO;
+        self.ceiling_normal = Vector3::ZERO;
+        // No sliding on first attempt to keep floor motion stable when possible,
+        // When stop on slope is enabled or when there is no up direction.
+        let mut sliding_enabled = !self.floor_stop_on_slope;
+        // Constant speed can be applied only the first time sliding is enabled.
+        let mut can_apply_constant_speed = sliding_enabled;
+        // If the platform's ceiling push down the body.
+        let mut apply_ceiling_velocity = false;
+        let mut first_slide = true;
+        let vel_dir_facing_up = self.velocity.dot(self.up_direction) > 0.0;
+        let mut total_travel = Vector3::ZERO;
+        for i in 0..self.max_slides {
+            let mut params = PhysicsTestMotionParameters3D::new_gd();
+            params.set_from(self.base().get_global_transform());
+            params.set_motion(motion);
+            params.set_margin(self.margin);
+            // There can be 4 collisions between 2 walls + 2 more for the floor.
+            params.set_max_collisions(6);
+            // Also report collisions generated only from recovery.
+            params.set_recovery_as_collision_enabled(true);
+            let result = move_and_collide(
+                &mut self.base_mut().clone().upcast(),
+                &params,
+                false,
+                !sliding_enabled,
+            );
+            let mut collided = result.is_some();
+            self.last_motion = Vector3::ZERO;
+
+            if let Some(mut result) = result {
+                self.motion_results.push(result.clone());
+                let previous_state = self.collision_state;
+                let result_state = self.set_collision_direction(&result);
+                // If we hit a ceiling platform, we set the vertical velocity to at least the platform one.
+                if self.collision_state.ceiling
+                    && self.platform_ceiling_velocity != Vector3::ZERO
+                    && self.platform_ceiling_velocity.dot(self.up_direction) < 0.0
+                // If ceiling sliding is on, only apply when the ceiling is flat or when the motion is upward.
+                    && (!self.slide_on_ceiling
+                        || motion.dot(self.up_direction) < 0.0
+                        || (self.ceiling_normal + self.up_direction).length() < 0.01)
+                {
+                    apply_ceiling_velocity = true;
+                    let ceiling_vertical_velocity =
+                        self.up_direction * self.up_direction.dot(self.platform_ceiling_velocity);
+                    let motion_vertical_velocity =
+                        self.up_direction * self.up_direction.dot(self.velocity);
+                    if motion_vertical_velocity.dot(self.up_direction) > 0.0
+                        || ceiling_vertical_velocity.length_squared()
+                            > motion_vertical_velocity.length_squared()
+                    {
+                        self.velocity =
+                            ceiling_vertical_velocity + self.velocity.slide(self.up_direction);
+                    }
+                }
+                if self.collision_state.floor
+                    && self.floor_stop_on_slope
+                    && (self.velocity.normalized() + self.up_direction).length() < 0.01
+                {
+                    let mut gt = self.base().get_global_transform();
+                    if result.travel.length() <= self.margin + CMP_EPSILON {
+                        gt.origin -= result.travel;
+                    }
+                    self.base_mut().set_global_transform(gt);
+                    self.velocity = Vector3::ZERO;
+                    motion = Vector3::ZERO;
+                    self.last_motion = Vector3::ZERO;
+                    break;
+                }
+
+                if result.remainder.is_zero_approx() {
+                    motion = Vector3::ZERO;
+                    break;
+                }
+
+                // Apply regular sliding by default.
+                let mut apply_default_sliding = true;
+
+                // Wall collision checks.
+                if result_state.wall && (motion_slide_up.dot(self.wall_normal) <= 0.0) {
+                    // Move on floor only checks.
+                    if self.floor_block_on_wall {
+                        // Needs horizontal motion from current motion instead of motion_slide_up
+                        // to properly test the angle and avoid standing on slopes
+                        let horizontal_motion = motion.slide(self.up_direction);
+                        let horizontal_normal =
+                            self.wall_normal.slide(self.up_direction).normalized();
+                        let motion_angle = real::abs(real::acos(
+                            -horizontal_normal.dot(horizontal_motion.normalized()),
+                        ));
+                        // Avoid to move forward on a wall if floor_block_on_wall is true.
+                        // Applies only when the motion angle is under 90 degrees,
+                        // in order to avoid blocking lateral motion along a wall.
+                        if motion_angle < 0.5 * std::f32::consts::PI {
+                            apply_default_sliding = false;
+                            if was_on_floor && !vel_dir_facing_up {
+                                // Cancel the motion.
+                                let mut gt = self.base().get_global_transform();
+                                let travel_total = result.travel.length();
+                                let cancel_dist_max = real::min(0.1, self.margin * 20.0);
+                                if travel_total <= self.margin + CMP_EPSILON {
+                                    gt.origin -= result.travel;
+                                    result.travel = Vector3::ZERO; // Cancel for constant speed computation.
+                                } else if travel_total < cancel_dist_max {
+                                    // If the movement is large the body can be prevented from reaching the walls.
+                                    gt.origin -= result.travel.slide(self.up_direction);
+                                    // Keep remaining motion in sync with amount canceled.
+                                    motion = motion.slide(self.up_direction);
+                                    result.travel = Vector3::ZERO;
+                                } else {
+                                    // Travel is too high to be safely canceled, we take it into account.
+                                    result.travel = result.travel.slide(self.up_direction);
+                                    motion = result.remainder;
+                                }
+                                self.base_mut().set_global_transform(gt);
+                                // Determines if you are on the ground, and limits the possibility of climbing on the walls because of the approximations.
+                                self.snap_on_floor(true, false);
+                            } else {
+                                // If the movement is not canceled we only keep the remaining.
+                                motion = result.remainder;
+                            }
+                            // Apply slide on forward in order to allow only lateral motion on next step.
+                            let forward = self.wall_normal.slide(self.up_direction).normalized();
+                            motion = motion.slide(forward);
+
+                            // Scales the horizontal velocity according to the wall slope.
+                            if vel_dir_facing_up {
+                                let slide_motion = self.velocity.slide(result.collisions[0].normal);
+                                // Keeps the vertical motion from velocity and add the horizontal motion of the projection.
+                                self.velocity = self.up_direction
+                                    * self.up_direction.dot(self.velocity)
+                                    + slide_motion.slide(self.up_direction);
+                            } else {
+                                self.velocity = self.velocity.slide(forward);
+                            }
+                            // Allow only lateral motion along previous floor when already on floor.
+                            // Fixes slowing down when moving in diagonal against an inclined wall.
+                            if was_on_floor
+                                && !vel_dir_facing_up
+                                && (motion.dot(self.up_direction) > 0.0)
+                            {
+                                // Slide along the corner between the wall and previous floor.
+                                let floor_side = prev_floor_normal.cross(self.wall_normal);
+                                if floor_side != Vector3::ZERO {
+                                    motion = floor_side * motion.dot(floor_side);
+                                }
+                            }
+
+                            // Stop all motion when a second wall is hit (unless sliding down or jumping),
+                            // in order to avoid jittering in corner cases.
+                            let mut stop_all_motion = previous_state.wall && !vel_dir_facing_up;
+
+                            // Allow sliding when the body falls.
+                            if (!self.collision_state.floor && motion.dot(self.up_direction) < 0.0)
+                            {
+                                let slide_motion = motion.slide(self.wall_normal);
+                                // Test again to allow sliding only if the result goes downwards.
+                                // Fixes jittering issues at the bottom of inclined walls.
+                                if slide_motion.dot(self.up_direction) < 0.0 {
+                                    stop_all_motion = false;
+                                    motion = slide_motion;
+                                }
+                            }
+
+                            if stop_all_motion {
+                                motion = Vector3::ZERO;
+                                self.velocity = Vector3::ZERO;
+                            }
+                        }
+                    }
+                    // Stop horizontal motion when under wall slide threshold.
+                    if was_on_floor && (self.wall_min_slide_angle > 0.0) && result_state.wall {
+                        let horizontal_normal =
+                            self.wall_normal.slide(self.up_direction).normalized();
+                        let motion_angle = real::abs(real::acos(
+                            -horizontal_normal.dot(motion_slide_up.normalized()),
+                        ));
+                        if motion_angle < self.wall_min_slide_angle {
+                            motion = self.up_direction * motion.dot(self.up_direction);
+                            self.velocity =
+                                self.up_direction * self.velocity.dot(self.up_direction);
+
+                            apply_default_sliding = false;
+                        }
+                    }
+                }
+
+                if apply_default_sliding {
+                    // Regular sliding, the last part of the test handle the case when you don't want to slide on the ceiling.
+                    if (sliding_enabled || !self.collision_state.floor)
+                        && (!self.collision_state.ceiling
+                            || self.slide_on_ceiling
+                            || !vel_dir_facing_up)
+                        && !apply_ceiling_velocity
+                    {
+                        let collision = &result.collisions[0];
+
+                        let mut slide_motion = result.remainder.slide(collision.normal);
+                        if self.collision_state.floor
+                            && !self.collision_state.wall
+                            && !motion_slide_up.is_zero_approx()
+                        {
+                            // Slide using the intersection between the motion plane and the floor plane,
+                            // in order to keep the direction intact.
+                            let motion_length = slide_motion.length();
+                            slide_motion = self
+                                .up_direction
+                                .cross(result.remainder)
+                                .cross(self.floor_normal);
+
+                            // Keep the length from default slide to change speed in slopes by default,
+                            // when constant speed is not enabled.
+                            slide_motion = slide_motion.normalized();
+                            slide_motion *= motion_length;
+                        }
+
+                        if slide_motion.dot(self.velocity) > 0.0 {
+                            motion = slide_motion;
+                        } else {
+                            motion = Vector3::ZERO;
+                        }
+
+                        if self.slide_on_ceiling && result_state.ceiling {
+                            // Apply slide only in the direction of the input motion, otherwise just stop to avoid jittering when moving against a wall.
+                            if vel_dir_facing_up {
+                                self.velocity = self.velocity.slide(collision.normal);
+                            } else {
+                                // Avoid acceleration in slope when falling.
+                                self.velocity =
+                                    self.up_direction * self.up_direction.dot(self.velocity);
+                            }
+                        }
+                    }
+                    // No sliding on first attempt to keep floor motion stable when possible.
+                    else {
+                        motion = result.remainder;
+                        if result_state.ceiling && !self.slide_on_ceiling && vel_dir_facing_up {
+                            self.velocity = self.velocity.slide(self.up_direction);
+                            motion = motion.slide(self.up_direction);
+                        }
+                    }
+                }
+                total_travel += result.travel;
+
+                // Apply Constant Speed.
+                if was_on_floor
+                    && self.floor_constant_speed
+                    && can_apply_constant_speed
+                    && self.collision_state.floor
+                    && !motion.is_zero_approx()
+                {
+                    let travel_slide_up = total_travel.slide(self.up_direction);
+                    motion = motion.normalized()
+                        * real::max(0.0, motion_slide_up.length() - travel_slide_up.length());
+                }
+            }
+            // When you move forward in a downward slope you don’t collide because you will be in the air.
+            // This test ensures that constant speed is applied, only if the player is still on the ground after the snap is applied.
+            else if self.floor_constant_speed
+                && first_slide
+                && self.on_floor_if_snapped(was_on_floor, vel_dir_facing_up)
+            {
+                can_apply_constant_speed = false;
+                sliding_enabled = true;
+                // WTF: result is not valid here!
+                // let gt = self.base().get_global_transform();
+                // gt.origin = gt.origin - result.travel;
+                // self.base_mut().set_global_transform(gt);
+
+                // Slide using the intersection between the motion plane and the floor plane,
+                // in order to keep the direction intact.
+                let motion_slide_norm = self.up_direction.cross(motion).cross(prev_floor_normal);
+                let motion_slide_norm = motion_slide_norm.normalized();
+
+                motion = motion_slide_norm * (motion_slide_up.length());
+                collided = true;
+            }
+            if !collided || motion.is_zero_approx() {
+                break;
+            }
+
+            can_apply_constant_speed = !can_apply_constant_speed && !sliding_enabled;
+            sliding_enabled = true;
+            first_slide = false;
+        }
+
+        self.snap_on_floor(was_on_floor, vel_dir_facing_up);
+
+        // Reset the gravity accumulation when touching the ground.
+        if self.collision_state.floor && !vel_dir_facing_up {
+            self.velocity = self.velocity.slide(self.up_direction);
+        }
     }
 
     fn on_floor_if_snapped(&mut self, was_on_floor: bool, vel_dir_facing_up: bool) -> bool {
@@ -434,9 +737,9 @@ impl CustomCharacterBody3D {
 
         false
     }
-    fn set_collision_direction(&mut self, result: &MotionResult) {
+    fn set_collision_direction(&mut self, result: &MotionResult) -> CollisionState {
         const APPLY_STATE: CollisionState = CollisionState::new(true, true, true);
-        self.set_collision_direction_ex(result, APPLY_STATE);
+        self.set_collision_direction_ex(result, APPLY_STATE)
     }
     fn set_collision_direction_ex(
         &mut self,
