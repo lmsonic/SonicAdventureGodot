@@ -20,6 +20,7 @@ impl MotionCollision {
 }
 
 const MAX_COLLISIONS: usize = 32;
+#[derive(Clone, Debug)]
 pub struct MotionResult {
     pub travel: Vector3,
     pub remainder: Vector3,

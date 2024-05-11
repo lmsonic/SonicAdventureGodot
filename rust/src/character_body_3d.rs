@@ -102,7 +102,7 @@ struct CustomCharacterBody3D {
     platform_ceiling_velocity: Vector3,
     previous_position: Vector3,
     real_velocity: Vector3,
-    motion_results: Vec<Gd<PhysicsTestMotionResult3D>>,
+    motion_results: Vec<MotionResult>,
     slide_colliders: Vec<Gd<KinematicCollision3D>>,
     collision_state: CollisionState,
     #[init(default = Rid::Invalid)]
@@ -222,13 +222,9 @@ impl CustomCharacterBody3D {
         let result = move_and_collide(&mut self.base_mut().clone().upcast(), &params, true, false);
 
         if let Some(result) = result {
-            let mut result_state = CollisionState::default();
             // Apply direction for floor only.
-            self.set_collision_direction_ex(
-                &result,
-                &mut result_state,
-                CollisionState::new(true, false, false),
-            );
+            let result_state =
+                self.set_collision_direction_ex(&result, CollisionState::new(true, false, false));
 
             if result_state.floor {
                 let mut travel = result.travel;
@@ -345,8 +341,65 @@ impl CustomCharacterBody3D {
 }
 
 impl CustomCharacterBody3D {
-    fn move_and_slide_floating(&self, delta: real) {
-        unimplemented!()
+    fn move_and_slide_floating(&mut self, delta: real) {
+        let mut motion = self.get_velocity() * delta;
+
+        self.platform_rid = Rid::Invalid;
+        self.platform_object_id = 0;
+        self.floor_normal = Vector3::default();
+        self.platform_velocity = Vector3::default();
+        self.platform_angular_velocity = Vector3::default();
+
+        let mut first_slide = true;
+        for iteration in 0..self.max_slides {
+            let mut params = PhysicsTestMotionParameters3D::new_gd();
+            params.set_from(self.base().get_global_transform());
+            params.set_motion(motion);
+            params.set_margin(self.margin);
+            params.set_recovery_as_collision_enabled(true); // Also report collisions generated only from recovery.
+
+            let result =
+                move_and_collide(&mut self.base_mut().clone().upcast(), &params, false, false);
+
+            self.last_motion = Vector3::ZERO;
+
+            if let Some(result) = result {
+                self.last_motion = result.travel;
+                self.motion_results.push(result.clone());
+                self.set_collision_direction(&result);
+                if result.remainder.is_zero_approx() {
+                    motion = Vector3::ZERO;
+                    break;
+                }
+                if self.wall_min_slide_angle != 0.0
+                    && real::acos(self.wall_normal.dot(-self.velocity.normalized()))
+                        < self.wall_min_slide_angle + FLOOR_ANGLE_THRESHOLD
+                {
+                    motion = Vector3::ZERO;
+                    if result.travel.length() < self.margin + CMP_EPSILON {
+                        let mut gt = self.base().get_global_transform();
+                        gt.origin -= result.travel;
+                        self.base_mut().set_global_transform(gt);
+                    }
+                } else if first_slide {
+                    let motion_slide_norm = result.remainder.slide(self.wall_normal).normalized();
+                    motion = motion_slide_norm * (motion.length() - result.travel.length());
+                } else {
+                    motion = result.remainder.slide(self.wall_normal);
+                }
+
+                if motion.dot(self.velocity) <= 0.0 {
+                    motion = Vector3::ZERO;
+                }
+            } else {
+                break;
+            }
+            if motion.is_zero_approx() {
+                break;
+            }
+
+            first_slide = false;
+        }
     }
     fn move_and_slide_grounded(&self, delta: real, was_on_floor: bool) {
         unimplemented!()
@@ -373,26 +426,24 @@ impl CustomCharacterBody3D {
         let result = move_and_collide(&mut self.base_mut().clone().upcast(), &params, true, false);
 
         if let Some(result) = result {
-            let mut result_state = CollisionState::default();
             // Don't apply direction for any type.
-            self.set_collision_direction_ex(&result, &mut result_state, CollisionState::default());
+            let result_state = self.set_collision_direction_ex(&result, CollisionState::default());
 
             return result_state.floor;
         }
 
         false
     }
-    fn set_collision_direction(&mut self, result: &MotionResult, state: &mut CollisionState) {
+    fn set_collision_direction(&mut self, result: &MotionResult) {
         const APPLY_STATE: CollisionState = CollisionState::new(true, true, true);
-        self.set_collision_direction_ex(result, state, APPLY_STATE);
+        self.set_collision_direction_ex(result, APPLY_STATE);
     }
     fn set_collision_direction_ex(
         &mut self,
         result: &MotionResult,
-        state: &mut CollisionState,
         apply_state: CollisionState,
-    ) {
-        *state = CollisionState::default();
+    ) -> CollisionState {
+        let mut state = CollisionState::default();
 
         let mut wall_depth: real = -1.0;
         let mut floor_depth: real = -1.0;
@@ -475,6 +526,7 @@ impl CustomCharacterBody3D {
                 }
             }
         }
+        state
     }
     fn set_platform_data(&mut self, collision: &MotionCollision) {
         self.platform_rid = Rid::Invalid;
