@@ -1,8 +1,8 @@
 use godot::{
     engine::{
         notify::Node3DNotification, physics_server_3d::BodyAxis, CharacterBody3D,
-        CollisionObject3D, IPhysicsBody3D, KinematicCollision3D, PhysicsBody3D, PhysicsServer3D,
-        PhysicsTestMotionParameters3D, PhysicsTestMotionResult3D,
+        CollisionObject3D, Engine, IPhysicsBody3D, KinematicCollision3D, PhysicsBody3D,
+        PhysicsServer3D, PhysicsTestMotionParameters3D, PhysicsTestMotionResult3D,
     },
     prelude::*,
 };
@@ -107,7 +107,7 @@ struct CustomCharacterBody3D {
     collision_state: CollisionState,
     #[init(default = Rid::Invalid)]
     platform_rid: Rid,
-    platform_object_id: u64,
+    platform_object_id: i64,
 
     base: Base<PhysicsBody3D>,
 }
@@ -200,8 +200,107 @@ fn move_and_collide(
 #[godot_api]
 impl CustomCharacterBody3D {
     #[func]
-    fn move_and_slide(&self) -> bool {
-        unimplemented!()
+    fn move_and_slide(&mut self) -> bool {
+        // Hack in order to work with calling from _process as well as from _physics_process; calling from thread is risky
+        let delta = if Engine::singleton().is_in_physics_frame() {
+            self.base()
+                .clone()
+                .upcast::<Node>()
+                .get_physics_process_delta_time()
+        } else {
+            self.base()
+                .clone()
+                .upcast::<Node>()
+                .get_process_delta_time()
+        };
+        if self.base().get_axis_lock(BodyAxis::LINEAR_X) {
+            self.velocity.x = 0.0;
+        }
+        if self.base().get_axis_lock(BodyAxis::LINEAR_Y) {
+            self.velocity.y = 0.0;
+        }
+        if self.base().get_axis_lock(BodyAxis::LINEAR_Z) {
+            self.velocity.z = 0.0;
+        }
+
+        let gt = self.base().get_global_transform();
+        self.previous_position = gt.origin;
+
+        let mut current_platform_velocity = self.platform_velocity;
+
+        if (self.collision_state.floor || self.collision_state.wall) && self.platform_rid.is_valid()
+        {
+            let mut excluded = false;
+            if self.collision_state.floor {
+                excluded = (self.platform_floor_layers & self.platform_layer) == 0;
+            } else if self.collision_state.wall {
+                excluded = (self.platform_wall_layers & self.platform_layer) == 0;
+            }
+            if excluded {
+                current_platform_velocity = Vector3::ZERO;
+            } else if let Some(bs) =
+                PhysicsServer3D::singleton().body_get_direct_state(self.platform_rid)
+            {
+                let local_position = gt.origin - bs.get_transform().origin;
+                current_platform_velocity = bs.get_velocity_at_local_position(local_position);
+            } else {
+                self.platform_rid = Rid::Invalid;
+            }
+        }
+
+        self.motion_results.clear();
+
+        let was_on_floor = self.collision_state.floor;
+        self.collision_state = CollisionState::default();
+
+        self.last_motion = Vector3::ZERO;
+
+        if !current_platform_velocity.is_zero_approx() {
+            let mut params = PhysicsTestMotionParameters3D::new_gd();
+            params.set_from(self.base().get_global_transform());
+            params.set_motion(current_platform_velocity * delta as real);
+            params.set_margin(self.margin);
+            // Also report collisions generated only from recovery.
+            params.set_recovery_as_collision_enabled(true);
+            let mut bodies = params.get_exclude_bodies();
+            bodies.push(self.platform_rid);
+            params.set_exclude_bodies(bodies);
+
+            if self.platform_object_id != 0 {
+                let mut objects = params.get_exclude_objects();
+                objects.push(self.platform_object_id);
+                params.set_exclude_objects(objects);
+            }
+
+            let mut body = self.base_mut().clone().upcast();
+            if let Some(floor_result) = move_and_collide(&mut body, &params, false, false) {
+                self.set_collision_direction(&floor_result);
+                self.motion_results.push(floor_result);
+            }
+        }
+
+        if self.motion_mode == MotionMode::Grounded {
+            self.move_and_slide_grounded(delta as real, was_on_floor);
+        } else {
+            self.move_and_slide_floating(delta as real);
+        }
+
+        // Compute real velocity.
+        self.real_velocity = self.get_position_delta() / delta as real;
+
+        if self.platform_on_leave != PlatformOnLeave::DoNothing {
+            // Add last platform velocity when just left a moving platform.
+            if !self.collision_state.floor && !self.collision_state.wall {
+                if self.platform_on_leave == PlatformOnLeave::AddUpwardVelocity
+                    && current_platform_velocity.dot(self.up_direction) < 0.0
+                {
+                    current_platform_velocity = current_platform_velocity.slide(self.up_direction);
+                }
+                self.velocity += current_platform_velocity;
+            }
+        }
+
+        !self.motion_results.is_empty()
     }
     #[func]
     fn apply_floor_snap(&mut self) {
@@ -567,8 +666,7 @@ impl CustomCharacterBody3D {
                             let mut stop_all_motion = previous_state.wall && !vel_dir_facing_up;
 
                             // Allow sliding when the body falls.
-                            if (!self.collision_state.floor && motion.dot(self.up_direction) < 0.0)
-                            {
+                            if !self.collision_state.floor && motion.dot(self.up_direction) < 0.0 {
                                 let slide_motion = motion.slide(self.wall_normal);
                                 // Test again to allow sliding only if the result goes downwards.
                                 // Fixes jittering issues at the bottom of inclined walls.
