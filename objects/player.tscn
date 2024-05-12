@@ -76,14 +76,12 @@ state = NodePath("../SpindashCharge")
 script = ExtResource("11_wsulv")
 guard = SubResource("Resource_lenpd")
 
-[node name="Player" type="CharacterBody3D"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
-slide_on_ceiling = false
-floor_stop_on_slope = false
+[node name="Player" type="CustomCharacterBody3D"]
 floor_constant_speed = true
-floor_block_on_wall = false
 floor_max_angle = 1.22173
 floor_snap_length = 0.5
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+custom_integrator = true
 script = ExtResource("1_gwnyu")
 slope_assistance = 0.0
 slope_drag = 0.0
@@ -124,13 +122,13 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.480727, 0)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.428961, 0)
 
 [node name="leg-left" parent="Model/Character/character2/root" index="0"]
-transform = Transform3D(0.965926, 0, 0.258819, 0, 1, 0, -0.258819, 0, 0.965926, 0.125, 0.17625, -0.02375)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.125, 0.17625, -0.02375)
 
 [node name="leg-right" parent="Model/Character/character2/root" index="1"]
-transform = Transform3D(0.965926, 0, -0.258819, 0, 1, 0, 0.258819, 0, 0.965926, -0.125, 0.17625, -0.02375)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.125, 0.17625, -0.02375)
 
 [node name="torso" parent="Model/Character/character2/root" index="2"]
-transform = Transform3D(1, 0, 0, 0, 0.996195, 0.0871558, 0, -0.0871558, 0.996195, -1.80478e-15, 0.17625, -0.02375)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.80478e-15, 0.17625, -0.02375)
 
 [node name="arm-left" parent="Model/Character/character2/root/torso" index="0"]
 transform = Transform3D(0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 0, 0, 1, 0.3, 0.2, 0)
@@ -258,29 +256,23 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.2)
 target_position = Vector3(0, -0.6, -0.2)
 
 [connection signal="state_entered" from="StateChart/Root/Grounded" to="." method="_on_grounded_state_entered"]
-[connection signal="state_input" from="StateChart/Root/Grounded" to="." method="_on_grounded_state_input"]
 [connection signal="state_physics_processing" from="StateChart/Root/Grounded" to="." method="_on_grounded_state_physics_processing"]
 [connection signal="state_entered" from="StateChart/Root/Grounded/Running" to="." method="_on_running_state_entered"]
-[connection signal="state_input" from="StateChart/Root/Grounded/Running" to="." method="_on_running_state_input"]
 [connection signal="state_physics_processing" from="StateChart/Root/Grounded/Running" to="." method="_on_running_state_physics_processing"]
 [connection signal="state_processing" from="StateChart/Root/Grounded/Running" to="." method="_on_running_state_processing"]
 [connection signal="state_entered" from="StateChart/Root/Grounded/SpindashCharge" to="." method="_on_spindash_charge_state_entered"]
 [connection signal="state_exited" from="StateChart/Root/Grounded/SpindashCharge" to="." method="_on_spindash_charge_state_exited"]
-[connection signal="state_input" from="StateChart/Root/Grounded/SpindashCharge" to="." method="_on_spindash_charge_state_input"]
 [connection signal="state_processing" from="StateChart/Root/Grounded/SpindashCharge" to="." method="_on_spindash_charge_state_processing"]
 [connection signal="state_entered" from="StateChart/Root/Grounded/Spindash" to="." method="_on_spindash_state_entered"]
-[connection signal="state_input" from="StateChart/Root/Grounded/Spindash" to="." method="_on_spindash_state_input"]
 [connection signal="state_physics_processing" from="StateChart/Root/Grounded/Spindash" to="." method="_on_spindash_state_physics_processing"]
 [connection signal="state_processing" from="StateChart/Root/Grounded/Spindash" to="." method="_on_spindash_state_processing"]
 [connection signal="event_received" from="StateChart/Root/Airborne" to="." method="_on_airborne_event_received"]
 [connection signal="state_entered" from="StateChart/Root/Airborne/Airball" to="." method="_on_airball_state_entered"]
-[connection signal="state_input" from="StateChart/Root/Airborne/Airball" to="." method="_on_airball_state_input"]
 [connection signal="state_physics_processing" from="StateChart/Root/Airborne/Airball" to="." method="_on_airball_state_physics_processing"]
 [connection signal="state_processing" from="StateChart/Root/Airborne/Airball" to="." method="_on_airball_state_processing"]
 [connection signal="state_entered" from="StateChart/Root/Airborne/HomingAttack" to="." method="_on_homing_attack_state_entered"]
 [connection signal="state_physics_processing" from="StateChart/Root/Airborne/HomingAttack" to="." method="_on_homing_attack_state_physics_processing"]
 [connection signal="state_processing" from="StateChart/Root/Airborne/HomingAttack" to="." method="_on_homing_attack_state_processing"]
 [connection signal="state_entered" from="StateChart/Root/Airborne/Jump" to="." method="_on_jump_state_entered"]
-[connection signal="state_physics_processing" from="StateChart/Root/Airborne/Jump" to="." method="_on_jump_state_physics_processing"]
 
 [editable path="Model/Character"]

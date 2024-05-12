@@ -1,8 +1,9 @@
 use godot::{
     engine::{
-        notify::Node3DNotification, physics_server_3d::BodyAxis, CharacterBody3D,
-        CollisionObject3D, Engine, IPhysicsBody3D, KinematicCollision3D, PhysicsBody3D,
-        PhysicsServer3D, PhysicsTestMotionParameters3D, PhysicsTestMotionResult3D,
+        notify::Node3DNotification, physics_server_3d::BodyAxis, AnimatableBody3D, CharacterBody3D,
+        CollisionObject3D, Engine, IAnimatableBody3D, IRigidBody3D, IStaticBody3D,
+        KinematicCollision3D, PhysicsBody3D, PhysicsServer3D, PhysicsTestMotionParameters3D,
+        PhysicsTestMotionResult3D, RigidBody3D, StaticBody3D,
     },
     prelude::*,
 };
@@ -45,50 +46,51 @@ impl CollisionState {
 const FLOOR_ANGLE_THRESHOLD: f32 = 0.01;
 
 #[derive(GodotClass)]
-#[class(base=PhysicsBody3D,init)]
+#[class(base=RigidBody3D,init)]
 #[allow(clippy::struct_excessive_bools)]
 struct CustomCharacterBody3D {
     #[export]
-    margin: real,
-    #[export]
     motion_mode: MotionMode,
     #[export]
-    platform_on_leave: PlatformOnLeave,
+    #[init(default=Vector3::UP)]
+    up_direction: Vector3,
+    #[init(default = true)]
+    slide_on_ceiling: bool,
+    #[export(range=(0.0,180.0,radians))]
+    #[init(default=f32::to_radians(15.0))]
+    wall_min_slide_angle: real,
 
-    #[export]
-    floor_constant_speed: bool,
+    // Floor
     #[export]
     #[init(default = true)]
     floor_stop_on_slope: bool,
     #[export]
-    #[init(default = true)]
-    floor_block_on_wall: bool,
+    floor_constant_speed: bool,
     #[export]
     #[init(default = true)]
-    slide_on_ceiling: bool,
+    floor_block_on_wall: bool,
+    #[export(range=(0.0,180.0,radians))]
+    #[init(default=f32::to_radians(45.0))]
+    floor_max_angle: real,
+    #[export(range=(0.0, 1.0))]
+    #[init(default = 0.1)]
+    floor_snap_length: real,
+    // Platform
+    #[export]
+    platform_on_leave: PlatformOnLeave,
+    #[export(flags_3d_physics)]
+    #[init(default=u32::MAX)]
+    platform_floor_layers: u32,
+    #[export(flags_3d_physics)]
+    platform_wall_layers: u32,
+    // Collision
+    #[export(range=(0.001,256.0))]
+    #[init(default = 0.001)]
+    margin: real,
+
     #[var(set=set_max_slides)]
     #[init(default = 6)]
     max_slides: i32,
-    #[export]
-    platform_layer: u32,
-
-    #[export]
-    #[init(default=u32::MAX)]
-    platform_floor_layers: u32,
-    #[export]
-    platform_wall_layers: u32,
-    #[export]
-    #[init(default = 0.1)]
-    floor_snap_length: real,
-    #[export]
-    #[init(default=f32::to_radians(45.0))]
-    floor_max_angle: real,
-    #[export]
-    wall_min_slide_angle: real,
-    #[export]
-    #[var(set=set_up_direction)]
-    #[init(default=Vector3::UP)]
-    up_direction: Vector3,
 
     #[var]
     velocity: Vector3,
@@ -100,6 +102,7 @@ struct CustomCharacterBody3D {
     platform_velocity: Vector3,
     platform_angular_velocity: Vector3,
     platform_ceiling_velocity: Vector3,
+    platform_layer: u32,
     previous_position: Vector3,
     real_velocity: Vector3,
     motion_results: Vec<MotionResult>,
@@ -109,10 +112,11 @@ struct CustomCharacterBody3D {
     platform_rid: Rid,
     platform_object_id: i64,
 
-    base: Base<PhysicsBody3D>,
+    base: Base<RigidBody3D>,
 }
+
 #[godot_api]
-impl IPhysicsBody3D for CustomCharacterBody3D {
+impl IRigidBody3D for CustomCharacterBody3D {
     fn on_notification(&mut self, what: Node3DNotification) {
         if let Node3DNotification::EnterTree = what {
             self.collision_state = CollisionState::default();
@@ -121,9 +125,11 @@ impl IPhysicsBody3D for CustomCharacterBody3D {
             self.motion_results.clear();
             self.platform_velocity = Vector3::ZERO;
             self.platform_angular_velocity = Vector3::ZERO;
+            self.base_mut().set_use_custom_integrator(true);
         }
     }
 }
+
 const CMP_EPSILON: real = 0.00001;
 fn move_and_collide(
     body: &mut Gd<PhysicsBody3D>,
@@ -132,10 +138,15 @@ fn move_and_collide(
     mut cancel_sliding: bool,
 ) -> Option<MotionResult> {
     let result = PhysicsTestMotionResult3D::new_gd();
-    let colliding = PhysicsServer3D::singleton()
-        .body_test_motion_ex(body.get_rid(), parameters.clone())
-        .result(result.clone())
-        .done();
+    let colliding = PhysicsServer3D::singleton().call(
+        c"body_test_motion".into(),
+        &[
+            body.get_rid().to_variant(),
+            parameters.clone().to_variant(),
+            result.clone().to_variant(),
+        ],
+    );
+    let colliding = colliding.booleanize();
     let mut result: MotionResult = result.into();
 
     // Restore direction of motion to be along original motion,
@@ -186,7 +197,7 @@ fn move_and_collide(
         result.travel.z = 0.0;
     }
 
-    if test_only {
+    if !test_only {
         let mut gt = parameters.get_from();
         gt.origin += result.travel;
         body.set_global_transform(gt);
@@ -274,7 +285,7 @@ impl CustomCharacterBody3D {
 
             let mut body = self.base_mut().clone().upcast();
             if let Some(floor_result) = move_and_collide(&mut body, &params, false, false) {
-                self.set_collision_direction(&floor_result);
+                self.update_collision_state(&floor_result);
                 self.motion_results.push(floor_result);
             }
         }
@@ -323,7 +334,7 @@ impl CustomCharacterBody3D {
         if let Some(result) = result {
             // Apply direction for floor only.
             let result_state =
-                self.set_collision_direction_ex(&result, CollisionState::new(true, false, false));
+                self.update_collision_state_ex(&result, CollisionState::new(true, false, false));
 
             if result_state.floor {
                 let mut travel = result.travel;
@@ -421,14 +432,7 @@ impl CustomCharacterBody3D {
         }
         self.get_slide_collision((self.motion_results.len() - 1) as u32)
     }
-    #[func]
-    fn set_up_direction(&mut self, up_direction: Vector3) {
-        if up_direction == Vector3::ZERO {
-            godot_error!("up_direction can't be equal to Vector3.ZERO, consider using Floating motion mode instead.");
-            return;
-        }
-        self.up_direction = up_direction;
-    }
+
     #[func]
     fn set_max_slides(&mut self, max_slides: i32) {
         if max_slides < 1 {
@@ -450,7 +454,7 @@ impl CustomCharacterBody3D {
         self.platform_angular_velocity = Vector3::default();
 
         let mut first_slide = true;
-        for iteration in 0..self.max_slides {
+        for _ in 0..self.max_slides {
             let mut params = PhysicsTestMotionParameters3D::new_gd();
             params.set_from(self.base().get_global_transform());
             params.set_motion(motion);
@@ -460,14 +464,11 @@ impl CustomCharacterBody3D {
             let result =
                 move_and_collide(&mut self.base_mut().clone().upcast(), &params, false, false);
 
-            self.last_motion = Vector3::ZERO;
-
             if let Some(result) = result {
                 self.last_motion = result.travel;
                 self.motion_results.push(result.clone());
-                self.set_collision_direction(&result);
+                self.update_collision_state(&result);
                 if result.remainder.is_zero_approx() {
-                    motion = Vector3::ZERO;
                     break;
                 }
                 if self.wall_min_slide_angle != 0.0
@@ -543,9 +544,10 @@ impl CustomCharacterBody3D {
             self.last_motion = Vector3::ZERO;
 
             if let Some(mut result) = result {
+                self.last_motion = result.travel;
                 self.motion_results.push(result.clone());
                 let previous_state = self.collision_state;
-                let result_state = self.set_collision_direction(&result);
+                let result_state = self.update_collision_state(&result);
                 // If we hit a ceiling platform, we set the vertical velocity to at least the platform one.
                 if self.collision_state.ceiling
                     && self.platform_ceiling_velocity != Vector3::ZERO
@@ -553,7 +555,7 @@ impl CustomCharacterBody3D {
                 // If ceiling sliding is on, only apply when the ceiling is flat or when the motion is upward.
                     && (!self.slide_on_ceiling
                         || motion.dot(self.up_direction) < 0.0
-                        || (self.ceiling_normal + self.up_direction).length() < 0.01)
+                        || (self.ceiling_normal + self.up_direction).length_squared() < 0.01)
                 {
                     apply_ceiling_velocity = true;
                     let ceiling_vertical_velocity =
@@ -572,19 +574,19 @@ impl CustomCharacterBody3D {
                     && self.floor_stop_on_slope
                     && (self.velocity.normalized() + self.up_direction).length() < 0.01
                 {
+                    // Velocity pointing down when on floor
                     let mut gt = self.base().get_global_transform();
                     if result.travel.length() <= self.margin + CMP_EPSILON {
                         gt.origin -= result.travel;
                     }
                     self.base_mut().set_global_transform(gt);
                     self.velocity = Vector3::ZERO;
-                    motion = Vector3::ZERO;
                     self.last_motion = Vector3::ZERO;
+                    godot_print!("stop on slope");
                     break;
                 }
 
                 if result.remainder.is_zero_approx() {
-                    motion = Vector3::ZERO;
                     break;
                 }
 
@@ -592,7 +594,7 @@ impl CustomCharacterBody3D {
                 let mut apply_default_sliding = true;
 
                 // Wall collision checks.
-                if result_state.wall && (motion_slide_up.dot(self.wall_normal) <= 0.0) {
+                if result_state.wall && motion_slide_up.dot(self.wall_normal) <= 0.0 {
                     // Move on floor only checks.
                     if self.floor_block_on_wall {
                         // Needs horizontal motion from current motion instead of motion_slide_up
@@ -652,7 +654,7 @@ impl CustomCharacterBody3D {
                             // Fixes slowing down when moving in diagonal against an inclined wall.
                             if was_on_floor
                                 && !vel_dir_facing_up
-                                && (motion.dot(self.up_direction) > 0.0)
+                                && motion.dot(self.up_direction) > 0.0
                             {
                                 // Slide along the corner between the wall and previous floor.
                                 let floor_side = prev_floor_normal.cross(self.wall_normal);
@@ -683,7 +685,7 @@ impl CustomCharacterBody3D {
                         }
                     }
                     // Stop horizontal motion when under wall slide threshold.
-                    if was_on_floor && (self.wall_min_slide_angle > 0.0) && result_state.wall {
+                    if was_on_floor && self.wall_min_slide_angle > 0.0 && result_state.wall {
                         let horizontal_normal =
                             self.wall_normal.slide(self.up_direction).normalized();
                         let motion_angle = real::abs(real::acos(
@@ -693,7 +695,6 @@ impl CustomCharacterBody3D {
                             motion = self.up_direction * motion.dot(self.up_direction);
                             self.velocity =
                                 self.up_direction * self.velocity.dot(self.up_direction);
-
                             apply_default_sliding = false;
                         }
                     }
@@ -774,6 +775,7 @@ impl CustomCharacterBody3D {
                 && first_slide
                 && self.on_floor_if_snapped(was_on_floor, vel_dir_facing_up)
             {
+                godot_print!("on slope in air");
                 can_apply_constant_speed = false;
                 sliding_enabled = true;
                 // WTF: result is not valid here!
@@ -786,9 +788,10 @@ impl CustomCharacterBody3D {
                 let motion_slide_norm = self.up_direction.cross(motion).cross(prev_floor_normal);
                 let motion_slide_norm = motion_slide_norm.normalized();
 
-                motion = motion_slide_norm * (motion_slide_up.length());
+                motion = motion_slide_norm * motion_slide_up.length();
                 collided = true;
             }
+
             if !collided || motion.is_zero_approx() {
                 break;
             }
@@ -809,7 +812,7 @@ impl CustomCharacterBody3D {
     fn on_floor_if_snapped(&mut self, was_on_floor: bool, vel_dir_facing_up: bool) -> bool {
         if self.up_direction == Vector3::ZERO
             || self.collision_state.floor
-            || was_on_floor
+            || !was_on_floor
             || vel_dir_facing_up
         {
             return false;
@@ -828,18 +831,18 @@ impl CustomCharacterBody3D {
 
         if let Some(result) = result {
             // Don't apply direction for any type.
-            let result_state = self.set_collision_direction_ex(&result, CollisionState::default());
+            let result_state = self.update_collision_state_ex(&result, CollisionState::default());
 
             return result_state.floor;
         }
 
         false
     }
-    fn set_collision_direction(&mut self, result: &MotionResult) -> CollisionState {
+    fn update_collision_state(&mut self, result: &MotionResult) -> CollisionState {
         const APPLY_STATE: CollisionState = CollisionState::new(true, true, true);
-        self.set_collision_direction_ex(result, APPLY_STATE)
+        self.update_collision_state_ex(result, APPLY_STATE)
     }
-    fn set_collision_direction_ex(
+    fn update_collision_state_ex(
         &mut self,
         result: &MotionResult,
         apply_state: CollisionState,
@@ -853,10 +856,9 @@ impl CustomCharacterBody3D {
         let prev_wall_normal = self.wall_normal;
         let mut wall_collision_count = 0;
         let mut combined_wall_normal = Vector3::default();
-        let mut tmp_wall_col = Vector3::default(); // Avoid duplicate on average calculation.
+        let mut previous_normal = Vector3::default(); // Avoid duplicate on average calculation.
 
-        for i in result.collision_count - 1..=0 {
-            let collision = &result.collisions[i];
+        for collision in result.collisions.iter().rev() {
             let normal = collision.normal;
             let depth = collision.depth;
             let collider_velocity = collision.collider_velocity;
@@ -871,36 +873,44 @@ impl CustomCharacterBody3D {
                         floor_depth = depth;
                         self.set_platform_data(collision);
                     }
+                    continue;
                 }
                 // Check if any collision is ceiling.
                 let ceiling_angle = real::acos(normal.dot(-self.up_direction));
                 if ceiling_angle <= self.floor_max_angle + FLOOR_ANGLE_THRESHOLD {
                     state.ceiling = true;
                     if apply_state.ceiling {
+                        self.collision_state.ceiling = true;
                         self.platform_ceiling_velocity = collider_velocity;
                         self.ceiling_normal = normal;
-                        self.collision_state.ceiling = true;
                     }
                     continue;
                 }
             }
             // Collision is wall by default.
+            state.wall = true;
             if apply_state.wall && depth > wall_depth {
+                state.wall = true;
                 self.collision_state.wall = true;
                 wall_depth = depth;
                 self.wall_normal = normal;
 
                 // Don't apply wall velocity when the collider is a CharacterBody3D.
                 if let Some(ref collider) = collision.collider {
-                    if collider.clone().try_cast::<CharacterBody3D>().is_err() {
+                    if collider.clone().try_cast::<CharacterBody3D>().is_err()
+                        || collider
+                            .clone()
+                            .try_cast::<CustomCharacterBody3D>()
+                            .is_err()
+                    {
                         self.set_platform_data(collision);
                     }
                 }
             }
 
             // Collect normal for calculating average.
-            if normal != (tmp_wall_col) {
-                tmp_wall_col = normal;
+            if normal != previous_normal {
+                previous_normal = normal;
                 combined_wall_normal += normal;
                 wall_collision_count += 1;
             }
@@ -909,7 +919,6 @@ impl CustomCharacterBody3D {
         if state.wall
             && wall_collision_count > 1
             && !state.floor
-            // && !state.floor // Godot source code was checking the same thing twice here lol
             && self.motion_mode == MotionMode::Grounded
         {
             combined_wall_normal = combined_wall_normal.normalized();
@@ -939,14 +948,17 @@ impl CustomCharacterBody3D {
         self.platform_object_id = collision.collider_id;
         self.platform_velocity = collision.collider_velocity;
         self.platform_angular_velocity = collision.collider_angular_velocity;
-        self.platform_layer =
-            PhysicsServer3D::singleton().body_get_collision_layer(self.platform_rid);
+        if self.platform_rid == Rid::Invalid {
+            self.platform_layer = 0;
+        } else {
+            self.platform_layer =
+                PhysicsServer3D::singleton().body_get_collision_layer(self.platform_rid);
+        }
     }
     fn snap_on_floor(&mut self, was_on_floor: bool, vel_dir_facing_up: bool) {
         if self.collision_state.floor || !was_on_floor || vel_dir_facing_up {
             return;
         }
-
         self.apply_floor_snap();
     }
 }

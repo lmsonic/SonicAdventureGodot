@@ -22,6 +22,7 @@ func on_player_entered(body: Node3D) -> void:
 			player.quaternion = Quaternion(Vector3.UP, player.rotation_y).normalized()
 
 		# Disable player movement for a small time
+		print(player.velocity)
 		player.disable_input = true
 		var timer := get_tree().create_timer(disable_input_time)
 		await timer.timeout

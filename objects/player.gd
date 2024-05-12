@@ -1,4 +1,4 @@
-class_name Player extends CharacterBody3D
+class_name Player extends CustomCharacterBody3D
 @export_group("Components")
 @export var view: Node3D
 @onready var model: Node3D = $Model
