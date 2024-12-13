@@ -76,12 +76,11 @@ state = NodePath("../SpindashCharge")
 script = ExtResource("11_wsulv")
 guard = SubResource("Resource_lenpd")
 
-[node name="Player" type="CustomCharacterBody3D"]
+[node name="Player" type="CharacterBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 floor_constant_speed = true
 floor_max_angle = 1.22173
 floor_snap_length = 0.5
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
-custom_integrator = true
 script = ExtResource("1_gwnyu")
 slope_assistance = 0.0
 slope_drag = 0.0
@@ -171,28 +170,32 @@ script = ExtResource("7_n7ffr")
 script = ExtResource("8_asbbi")
 to = NodePath("../../Running")
 event = &"running"
-delay_seconds = 0.1
+delay_in_seconds = "0.1"
 
 [node name="ToJump" type="Node" parent="StateChart/Root/Grounded"]
 script = ExtResource("8_asbbi")
 to = NodePath("../../Airborne/Jump")
 event = &"jump"
 guard = SubResource("Resource_k26q8")
+delay_in_seconds = "0.0"
 
 [node name="ToAirborne" type="Node" parent="StateChart/Root/Grounded"]
 script = ExtResource("8_asbbi")
 to = NodePath("../../Airborne")
 event = &"airborne"
+delay_in_seconds = "0.0"
 
 [node name="ToSpindashCharge" type="Node" parent="StateChart/Root/Grounded"]
 script = ExtResource("8_asbbi")
 to = NodePath("../SpindashCharge")
 event = &"charge_spindash"
+delay_in_seconds = "0.0"
 
 [node name="ToSpindash" type="Node" parent="StateChart/Root/Grounded"]
 script = ExtResource("8_asbbi")
 to = NodePath("../Spindash")
 event = &"spindash"
+delay_in_seconds = "0.0"
 
 [node name="Airborne" type="Node" parent="StateChart/Root"]
 script = ExtResource("6_ttfhf")
@@ -205,6 +208,7 @@ script = ExtResource("7_n7ffr")
 script = ExtResource("8_asbbi")
 to = NodePath("../../HomingAttack")
 event = &"homing_attack"
+delay_in_seconds = "0.0"
 
 [node name="HomingAttack" type="Node" parent="StateChart/Root/Airborne"]
 script = ExtResource("7_n7ffr")
@@ -213,6 +217,7 @@ script = ExtResource("7_n7ffr")
 script = ExtResource("8_asbbi")
 to = NodePath("../../Airball")
 event = &"airball"
+delay_in_seconds = "0.0"
 
 [node name="Jump" type="Node" parent="StateChart/Root/Airborne"]
 script = ExtResource("7_n7ffr")
@@ -220,11 +225,13 @@ script = ExtResource("7_n7ffr")
 [node name="Transition" type="Node" parent="StateChart/Root/Airborne/Jump"]
 script = ExtResource("8_asbbi")
 to = NodePath("../../Airball")
+delay_in_seconds = "0.0"
 
 [node name="ToGrounded" type="Node" parent="StateChart/Root/Airborne"]
 script = ExtResource("8_asbbi")
 to = NodePath("../../Grounded")
 event = &"grounded"
+delay_in_seconds = "0.0"
 
 [node name="StateChartDebugger" parent="." instance=ExtResource("12_jno0k")]
 offset_right = -965.0

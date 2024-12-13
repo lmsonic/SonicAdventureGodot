@@ -1,0 +1,124 @@
+[gd_scene load_steps=13 format=3 uid="uid://dtsgtalmq8rk7"]
+
+[ext_resource type="PackedScene" uid="uid://dl2ed4gkybggf" path="res://objects/player.tscn" id="1_cugl0"]
+[ext_resource type="PackedScene" uid="uid://36mcsb6wrsdr" path="res://scenes/view.tscn" id="2_nqevt"]
+[ext_resource type="Material" uid="uid://bx6qeabdhq2s" path="res://addons/kenney_prototype_tools/materials/dark/material_01.tres" id="3_xwusv"]
+[ext_resource type="Script" path="res://objects/respawn_plane.gd" id="4_33irv"]
+[ext_resource type="PackedScene" uid="uid://cla7rxl6g42sw" path="res://objects/spring.tscn" id="5_ldnjt"]
+[ext_resource type="Script" path="res://objects/badnik_spawner.gd" id="6_0lfmb"]
+[ext_resource type="PackedScene" uid="uid://dnbclthgo305d" path="res://objects/badnik.tscn" id="6_85bym"]
+[ext_resource type="PackedScene" uid="uid://cael3mhqnj0do" path="res://objects/ring.tscn" id="8_4427m"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_kdlij"]
+sky_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
+ground_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
+
+[sub_resource type="Sky" id="Sky_mhtox"]
+sky_material = SubResource("ProceduralSkyMaterial_kdlij")
+
+[sub_resource type="Environment" id="Environment_56vci"]
+background_mode = 2
+sky = SubResource("Sky_mhtox")
+tonemap_mode = 2
+glow_enabled = true
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_pfjdm"]
+size = Vector3(400, 1, 400)
+
+[node name="Playground" type="Node3D"]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.866023, -0.433016, 0.250001, 0, 0.499998, 0.866027, -0.500003, 0.749999, -0.43301, 0, 0, 0)
+shadow_enabled = true
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_56vci")
+
+[node name="Player" parent="." node_paths=PackedStringArray("view") instance=ExtResource("1_cugl0")]
+_import_path = NodePath("")
+unique_name_in_owner = false
+process_mode = 0
+process_priority = 0
+process_physics_priority = 0
+process_thread_group = 0
+physics_interpolation_mode = 0
+auto_translate_mode = 0
+editor_description = ""
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.091898, 2.44734, 0.0273056)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.091898, 2.44734, 0.0273056)
+view = NodePath("../View")
+
+[node name="View" parent="." node_paths=PackedStringArray("target") instance=ExtResource("2_nqevt")]
+target = NodePath("../Player")
+
+[node name="CSGCombiner3D" type="CSGCombiner3D" parent="."]
+visible = false
+material_override = ExtResource("3_xwusv")
+use_collision = true
+
+[node name="CSGBox3D" type="CSGBox3D" parent="CSGCombiner3D"]
+use_collision = true
+size = Vector3(30, 1, 30)
+
+[node name="CSGPolygon3D" type="CSGPolygon3D" parent="CSGCombiner3D"]
+transform = Transform3D(0.999999, -0.000858704, 0.00099915, 0.000860303, 0.999998, -0.00158254, -0.000997773, 0.00158341, 0.999998, 0, 1, 0)
+material_override = ExtResource("3_xwusv")
+polygon = PackedVector2Array(0, 0, 1.72756, -0.46235, 1, 0)
+mode = 1
+spin_degrees = 360.0
+spin_sides = 8
+
+[node name="CSGCylinder3D" type="CSGCylinder3D" parent="CSGCombiner3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 3, 10)
+radius = 2.0
+height = 1.0
+
+[node name="CSGCylinder3D2" type="CSGCylinder3D" parent="CSGCombiner3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 4, 6)
+radius = 2.0
+height = 1.0
+
+[node name="15" type="CSGPolygon3D" parent="CSGCombiner3D"]
+transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, -13.4664, 0.5, 12.9084)
+polygon = PackedVector2Array(0, 0, 1.2, 0.5, 1.8, 0.5, 3, 0)
+depth = 2.0
+
+[node name="30" type="CSGPolygon3D" parent="CSGCombiner3D"]
+transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, -13.5, 0.5, 6.9)
+polygon = PackedVector2Array(0, 0, 1.2, 1, 1.8, 1, 3, 0)
+depth = 2.0
+
+[node name="45" type="CSGPolygon3D" parent="CSGCombiner3D"]
+transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, -13.5, 0.5, 0.9)
+polygon = PackedVector2Array(0, 0, 1.2, 1.5, 1.8, 1.5, 3, 0)
+depth = 2.0
+
+[node name="60" type="CSGPolygon3D" parent="CSGCombiner3D"]
+transform = Transform3D(5, 0, 0, 0, 5, 0, 0, 0, 5, -13.5, 0.5, -5.1)
+polygon = PackedVector2Array(0, 0, 1.2, 2, 1.8, 2, 3, 0)
+depth = 2.0
+
+[node name="RespawnPlane" type="Area3D" parent="."]
+script = ExtResource("4_33irv")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="RespawnPlane"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -9, 0)
+shape = SubResource("BoxShape3D_pfjdm")
+
+[node name="Spring" parent="." instance=ExtResource("5_ldnjt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.09115, 0.679939, 0)
+
+[node name="Spring2" parent="." instance=ExtResource("5_ldnjt")]
+transform = Transform3D(0.5, 0.866025, 0, -0.866025, 0.5, 0, 0, 0, 1, -4.02962, 10.09, -6.54615)
+
+[node name="BadnikSpawner" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.90569, 1.14626, -4.40192)
+script = ExtResource("6_0lfmb")
+respawn_time = 2.0
+
+[node name="Badnik" parent="BadnikSpawner" instance=ExtResource("6_85bym")]
+
+[node name="Ring" parent="." instance=ExtResource("8_4427m")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.60159, 1.83877, 0.978715)
+
+[connection signal="body_entered" from="RespawnPlane" to="RespawnPlane" method="_on_body_entered"]

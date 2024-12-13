@@ -1,4 +1,4 @@
-class_name Player extends CustomCharacterBody3D
+class_name Player extends CharacterBody3D
 @export_group("Components")
 @export var view: Node3D
 @onready var model: Node3D = $Model
@@ -107,7 +107,7 @@ func is_uphill() -> bool:
 	forward = forward.normalized()
 	return normal.dot(forward) < 0.0
 
-func handle_slopes(delta: float, slope_assistance: float, slope_drag: float, flat_drag:=0.0) -> void:
+func handle_slopes(delta: float, slope_assistance: float, slope_drag: float, flat_drag := 0.0) -> void:
 	if not is_on_floor():
 		return
 	var angle := get_floor_angle()
@@ -138,7 +138,7 @@ func handle_rotation(delta: float, rotation_speed: float) -> void:
 		rotation_y = lerp_angle(rotation_y, target_angle, delta * rotation_speed)
 
 	var normal := raycast_group.get_floor_normal()
-	if not is_on_floor()||normal == Vector3.ZERO:
+	if not is_on_floor() || normal == Vector3.ZERO:
 		var target_rotation := Quaternion(Vector3.UP, rotation_y).normalized()
 		quaternion = quaternion.slerp(target_rotation, delta * align_rotation_speed).normalized()
 	else:
@@ -213,7 +213,7 @@ func _on_airball_state_entered() -> void:
 
 func _on_running_state_processing(_delta: float) -> void:
 	var input := camera_relative_input()
-	if not disable_input and input != Vector3.ZERO and input.dot(get_forward()) < - 0.5:
+	if not disable_input and input != Vector3.ZERO and input.dot(get_forward()) < -0.5:
 		velocity.x *= 0.5
 		velocity.z *= 0.5
 	if velocity.length_squared() > 1.0:
@@ -256,7 +256,7 @@ func get_closest_targettable() -> Targettable:
 	if targettables.is_empty():
 		return null
 	targettables = targettables.filter(func(x: Targettable) -> bool:
-		var delta:=global_position.direction_to(x.global_position)
+		var delta := global_position.direction_to(x.global_position)
 		return delta.dot(get_forward()) > 0.0 and delta.y < 0.5)
 	targettables = targettables.filter(func(x: Targettable) -> bool:
 		return x.global_position.distance_squared_to(global_position) < homing_attack_radius * homing_attack_radius)

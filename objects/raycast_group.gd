@@ -31,4 +31,3 @@ func disable_ground_check() -> void:
 	await timer.timeout
 	for child:RayCast3D in get_children():
 		child.enabled = true
-
